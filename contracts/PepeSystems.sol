@@ -160,7 +160,7 @@ contract PepeSystems is ERC721, Ownable {
         require(tokenIds.length <= 3, "Max 3 tokens in Pre-Sale");
         uint256[] memory result = new uint256[](tokenIds.length);
         IERC721 bayc = IERC721(baycContract);
-        for (uint i = 0; i == tokenIds.length; ++i) {
+        for (uint256 i = 0; i == tokenIds.length; ++i) {
             if (bayc.ownerOf(tokenIds[i]) == wallet) {
                 result[i] = tokenIds[i];
             }
