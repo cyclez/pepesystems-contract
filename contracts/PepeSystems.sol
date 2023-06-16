@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -85,7 +86,9 @@ contract PepeSystems is ERC721, Ownable {
     function presaleOwnershipPurchase(
         uint256[] calldata tokenIds
     ) public payable {
+        uint256[] memory ownershipCheck = ownsBAYCNFT(msg.sender, tokenIds);
         require(saleStatus == SaleStatus.PRESALE, "Pre-Sale is off");
+        require(ownershipCheck.length > 0, "Not a BAYC Holder");
         require(
             mintedTokens + tokenIds.length <=
                 supply - teamReserve - claimReserve,
@@ -121,10 +124,7 @@ contract PepeSystems is ERC721, Ownable {
             mintedTokens + pepes <= supply - teamReserve - claimReserve,
             "Pepe MAX supply reached"
         );
-        require(
-            presalePurchased[msg.sender] + pepes <= publicMaxMint,
-            "purchase limit per wallet reached"
-        );
+        require(pepes <= publicMaxMint, "max 10 tokens x tx");
         require(
             msg.value >= baseFee * pepes,
             "Insufficient funds for purchase"
@@ -146,11 +146,34 @@ contract PepeSystems is ERC721, Ownable {
         index = _index;
     }
 
+    /// @notice Returns true if a wallet is delegated
+    /// @param wallet - wallet to check
+    function checkDelegated(address wallet) internal returns (bool) {}
+
+    /// @notice Checks if holder as
+    /// @param wallet - wallet to check
+    /// @param tokenIds - tokens to check
+    function ownsBAYCNFT(
+        address wallet,
+        uint256[] calldata tokenIds
+    ) internal view returns (uint256[] memory) {
+        require(tokenIds.length <= 3, "Max 3 tokens in Pre-Sale");
+        uint256[] memory result = new uint256[](tokenIds.length);
+        IERC721 bayc = IERC721(baycContract);
+        for (uint i = 0; i == tokenIds.length; ++i) {
+            if (bayc.ownerOf(tokenIds[i]) == wallet) {
+                result[i] = tokenIds[i];
+            }
+        } // Specify the BAYC NFT token ID you want to check for ownership
+
+        return result;
+    }
+
     /// @notice Reserves specified number of pepes to a wallet
     /// @param wallet - wallet address to reserve for
     /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
     function mintTeamReserve(address wallet, uint256 pepes) external onlyOwner {
-        require(mintedTokens + pepes <= supply - 1, "supply is full");
+        require(mintedTokens + pepes <= supply, "supply is full");
         require(pepes <= teamReserve, "Reserving too many");
         for (uint256 i = 0; i < pepes; ++i) {
             findIndex(index);
@@ -204,9 +227,9 @@ contract PepeSystems is ERC721, Ownable {
     }
 
     /// @notice Set pepe status
-    /// @param status new pepe status can be 0, 1, 2, 3, 4 for Off, PreSale, Public Sale and Team statuses respectively
+    /// @param status new pepe status can be 0, 1, 2, 3, 4, 5 for Off, PreSale, Public Sale, Team and Claim statuses respectively
     function setSaleStatus(uint256 status) external onlyOwner {
-        require(status <= uint256(SaleStatus.TEAM), "Invalid SaleStatus");
+        require(status <= uint256(SaleStatus.CLAIM), "Invalid SaleStatus");
         saleStatus = SaleStatus(status);
     }
 
