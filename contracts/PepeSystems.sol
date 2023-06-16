@@ -90,7 +90,7 @@ contract PepeSystems is ERC721, Ownable {
         require(saleStatus == SaleStatus.PRESALE, "Pre-Sale is off");
         require(
             ownershipCheck.length == tokenIds.length,
-            "You don't own the tokens in input"
+            "You don't own some or all the tokens in input"
         );
         require(
             mintedTokens + tokenIds.length <=
