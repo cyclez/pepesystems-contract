@@ -88,7 +88,10 @@ contract PepeSystems is ERC721, Ownable {
     ) public payable {
         uint256[] memory ownershipCheck = ownsBAYCNFT(msg.sender, tokenIds);
         require(saleStatus == SaleStatus.PRESALE, "Pre-Sale is off");
-        require(ownershipCheck.length > 0, "Not a BAYC Holder");
+        require(
+            ownershipCheck.length == tokenIds.length,
+            "You don't own the tokens in input"
+        );
         require(
             mintedTokens + tokenIds.length <=
                 supply - teamReserve - claimReserve,
