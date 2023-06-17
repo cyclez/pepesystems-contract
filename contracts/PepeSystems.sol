@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "../lib/DelegationRegistry.sol";
+import "../lib/IDelegationRegistry.sol";
 import "hardhat/console.sol";
 
 pragma solidity ^0.8.17;
@@ -35,6 +37,7 @@ contract PepeSystems is ERC721, Ownable {
     address pepeTokenContract = 0x6982508145454Ce325dDbE47a25d4ec3d2311933;
     address ceo = 0x0000000000000000000000000000000000000000;
     address cto = 0x0000000000000000000000000000000000000000;
+    DelegationRegistry reg;
 
     enum SaleStatus {
         OFF,
@@ -46,7 +49,13 @@ contract PepeSystems is ERC721, Ownable {
 
     SaleStatus public saleStatus;
 
-    constructor() ERC721("Pepe Systems", "PS") {}
+    constructor() ERC721("Pepe Systems", "PS") {
+        reg = DelegationRegistry(delegateCashContract);
+    }
+
+    /**
+     * -----------  MINT FUNCTIONS -----------
+     */
 
     /// @notice mint the ps ids with delegation discount
     /// @param tokenIds - list of tokens to mint
@@ -142,6 +151,25 @@ contract PepeSystems is ERC721, Ownable {
         mintedTokens += pepes;
     }
 
+    /// @notice Reserves specified number of pepes to a wallet
+    /// @param wallet - wallet address to reserve for
+    /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
+    function mintTeamReserve(address wallet, uint256 pepes) external onlyOwner {
+        require(mintedTokens + pepes <= supply, "supply is full");
+        require(pepes <= teamReserve, "Reserving too many");
+        for (uint256 i = 0; i < pepes; ++i) {
+            findIndex(index);
+            _mint(wallet, index);
+            ++index;
+            teamReserve -= pepes;
+        }
+        mintedTokens += pepes;
+    }
+
+    /**
+     * -----------  UTILITY FUNCTIONS -----------
+     */
+
     function findIndex(uint256 _index) internal {
         while (presaleTokensCheck[_index]) {
             ++_index;
@@ -167,25 +195,13 @@ contract PepeSystems is ERC721, Ownable {
             if (bayc.ownerOf(tokenIds[i]) == wallet) {
                 result[i] = tokenIds[i];
             }
-        } // Specify the BAYC NFT token ID you want to check for ownership
-
+        }
         return result;
     }
 
-    /// @notice Reserves specified number of pepes to a wallet
-    /// @param wallet - wallet address to reserve for
-    /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
-    function mintTeamReserve(address wallet, uint256 pepes) external onlyOwner {
-        require(mintedTokens + pepes <= supply, "supply is full");
-        require(pepes <= teamReserve, "Reserving too many");
-        for (uint256 i = 0; i < pepes; ++i) {
-            findIndex(index);
-            _mint(wallet, index);
-            ++index;
-            teamReserve -= pepes;
-        }
-        mintedTokens += pepes;
-    }
+    /**
+     * -----------  SET FUNCTIONS -----------
+     */
 
     /// @notice Set pepe url
     /// @param _pepeUrl new pepe s base url
