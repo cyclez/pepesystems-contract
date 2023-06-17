@@ -60,7 +60,8 @@ contract PepeSystems is ERC721, Ownable {
     /// @notice mint the ps ids with delegation discount
     /// @param tokenIds - list of tokens to mint
     function presaleDelegationPurchase(
-        uint256[] calldata tokenIds
+        uint256[] calldata tokenIds,
+        uint256 delegationId
     ) public payable {
         require(saleStatus == SaleStatus.PRESALE, "Pre-Sale is off");
         require(
@@ -179,7 +180,10 @@ contract PepeSystems is ERC721, Ownable {
 
     /// @notice Returns true if a wallet is delegated
     /// @param wallet - wallet to check
-    function checkDelegated(address wallet) internal returns (bool) {}
+    function checkDelegatedBAYC(address wallet) internal returns (bool) {
+        
+
+    }
 
     /// @notice Checks if holder as
     /// @param wallet - wallet to check
