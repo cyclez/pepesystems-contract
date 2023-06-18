@@ -38,6 +38,7 @@ contract PepeSystems is ERC721, Ownable {
     address ceo = 0x0000000000000000000000000000000000000000;
     address cto = 0x0000000000000000000000000000000000000000;
     DelegationRegistry reg;
+    IDelegationRegistry.DelegationInfo[] public delegationInfos;
 
     enum SaleStatus {
         OFF,
@@ -59,11 +60,17 @@ contract PepeSystems is ERC721, Ownable {
 
     /// @notice mint the ps ids with delegation discount
     /// @param tokenIds - list of tokens to mint
-    function presaleDelegationPurchase(
-        uint256[] calldata tokenIds,
-        uint256 delegationId
+    function presaleDelegatedPurchase(
+        address walletToMint,
+        uint256 dcIndex,
+        uint256[] calldata tokenIds
     ) public payable {
         require(saleStatus == SaleStatus.PRESALE, "Pre-Sale is off");
+        require(
+            checkDelegatedBAYC(tokenIds, dcIndex) == true,
+            "Requested token ids are not held by the vault"
+        );
+
         require(
             mintedTokens + tokenIds.length <=
                 supply - teamReserve - claimReserve,
@@ -82,7 +89,7 @@ contract PepeSystems is ERC721, Ownable {
         uint256 tokenCount = 0;
         for (uint256 i = 0; i < tokenIds.length; i++) {
             if (!presaleTokensCheck[tokenIds[i]]) {
-                _mint(msg.sender, tokenIds[i]);
+                _mint(walletToMint, tokenIds[i]);
                 presaleTokensCheck[tokenIds[i]] = true;
                 ++tokenCount;
             }
@@ -100,7 +107,7 @@ contract PepeSystems is ERC721, Ownable {
         require(saleStatus == SaleStatus.PRESALE, "Pre-Sale is off");
         require(
             ownershipCheck.length == tokenIds.length,
-            "You don't own some or all the tokens in input"
+            "You don't own some or all of the tokens in input"
         );
         require(
             mintedTokens + tokenIds.length <=
@@ -127,6 +134,28 @@ contract PepeSystems is ERC721, Ownable {
         }
         require(tokenCount > 0, "All requested tokens are already minted");
         mintedTokens += tokenCount;
+    }
+
+    /// @notice Mint in public with a delegated wallet
+    /// @param pepes - total number of pepes to mint (must be less than purchase limit)
+    function publicDelegatedPurchase(uint256 pepes) public payable {
+        require(saleStatus == SaleStatus.PUBLIC, "Public sale is off");
+        require(
+            mintedTokens + pepes <= supply - teamReserve - claimReserve,
+            "Pepe MAX supply reached"
+        );
+        require(pepes <= publicMaxMint, "max 10 tokens x tx");
+        bool isDelegatedValue = isDelegated();
+        require(isDelegatedValue, "connected wallet has no delegations");
+        require(msg.value >= lowFee * pepes, "Insufficient funds for purchase");
+
+        for (uint256 i = 0; i < pepes; ++i) {
+            findIndex(index);
+            _mint(msg.sender, index);
+            ++index;
+        }
+        presalePurchased[msg.sender] += pepes;
+        mintedTokens += pepes;
     }
 
     /// @notice Mint a pepe by public mint
@@ -157,7 +186,7 @@ contract PepeSystems is ERC721, Ownable {
     /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
     function mintTeamReserve(address wallet, uint256 pepes) external onlyOwner {
         require(mintedTokens + pepes <= supply, "supply is full");
-        require(pepes <= teamReserve, "Reserving too many");
+        require(pepes <= teamReserve, "sinting too many");
         for (uint256 i = 0; i < pepes; ++i) {
             findIndex(index);
             _mint(wallet, index);
@@ -171,6 +200,8 @@ contract PepeSystems is ERC721, Ownable {
      * -----------  UTILITY FUNCTIONS -----------
      */
 
+    /// @notice finds the next available tokenID to mint
+    /// @param _index - actual token in input
     function findIndex(uint256 _index) internal {
         while (presaleTokensCheck[_index]) {
             ++_index;
@@ -178,14 +209,36 @@ contract PepeSystems is ERC721, Ownable {
         index = _index;
     }
 
-    /// @notice Returns true if a wallet is delegated
-    /// @param wallet - wallet to check
-    function checkDelegatedBAYC(address wallet) internal returns (bool) {
-        
-
+    /// @notice Checks if a connected wallet has delegations
+    function isDelegated() internal returns (bool) {
+        bool result;
+        delegationInfos = reg.getDelegationsByDelegate(msg.sender);
+        if (delegationInfos.length != 0) {
+            result = true;
+        }
+        return result;
     }
 
-    /// @notice Checks if holder as
+    /// @notice Returns true if the vault has requested BAYC IDs
+    /// @param tokenIds - tokens to check
+    /// @param dcIndex - getDelegationsByDelegate index to avoid for cycle
+    function checkDelegatedBAYC(
+        uint256[] calldata tokenIds,
+        uint256 dcIndex
+    ) internal returns (bool) {
+        bool result;
+        delegationInfos = reg.getDelegationsByDelegate(msg.sender);
+        uint256[] memory vaultOwnershipCheck = ownsBAYCNFT(
+            delegationInfos[dcIndex].vault,
+            tokenIds
+        );
+        if (vaultOwnershipCheck.length == tokenIds.length) {
+            result = true;
+        }
+        return result;
+    }
+
+    /// @notice Checks if holder has the relative BAYC ids in his wallet
     /// @param wallet - wallet to check
     /// @param tokenIds - tokens to check
     function ownsBAYCNFT(
