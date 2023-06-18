@@ -65,12 +65,12 @@ contract PepeSystems is ERC721, Ownable {
         uint256 dcIndex,
         uint256[] calldata tokenIds
     ) public payable {
-        require(saleStatus == SaleStatus.PRESALE, "Pre-Sale is off");
-        require(
-            checkDelegatedBAYC(tokenIds, dcIndex) == true,
-            "Requested token ids are not held by the vault"
+        (bool checkResult, address foundVault) = checkDelegatedBAYC(
+            tokenIds,
+            dcIndex
         );
-
+        require(saleStatus == SaleStatus.PRESALE, "Pre-Sale is off");
+        require(checkResult, "Requested token ids are not held by the vault");
         require(
             mintedTokens + tokenIds.length <=
                 supply - teamReserve - claimReserve,
@@ -95,6 +95,7 @@ contract PepeSystems is ERC721, Ownable {
             }
         }
         require(tokenCount > 0, "All requested tokens are already minted");
+        presalePurchased[foundVault] += tokenCount;
         mintedTokens += tokenCount;
     }
 
@@ -103,12 +104,7 @@ contract PepeSystems is ERC721, Ownable {
     function presaleOwnershipPurchase(
         uint256[] calldata tokenIds
     ) public payable {
-        uint256[] memory ownershipCheck = ownsBAYCNFT(msg.sender, tokenIds);
         require(saleStatus == SaleStatus.PRESALE, "Pre-Sale is off");
-        require(
-            ownershipCheck.length == tokenIds.length,
-            "You don't own some or all of the tokens in input"
-        );
         require(
             mintedTokens + tokenIds.length <=
                 supply - teamReserve - claimReserve,
@@ -117,6 +113,11 @@ contract PepeSystems is ERC721, Ownable {
         require(
             presalePurchased[msg.sender] + tokenIds.length <= presaleMaxMint,
             "purchase limit per wallet reached"
+        );
+        uint256[] memory ownershipCheck = ownsBAYCNFT(msg.sender, tokenIds);
+        require(
+            ownershipCheck.length == tokenIds.length,
+            "You don't own some or all of the tokens in input"
         );
         require(tokenIds.length <= presaleMaxMint, "Max 3 tokens in Pre-Sale");
         require(
@@ -133,6 +134,7 @@ contract PepeSystems is ERC721, Ownable {
             }
         }
         require(tokenCount > 0, "All requested tokens are already minted");
+        presalePurchased[msg.sender] += tokenCount;
         mintedTokens += tokenCount;
     }
 
@@ -154,7 +156,6 @@ contract PepeSystems is ERC721, Ownable {
             _mint(msg.sender, index);
             ++index;
         }
-        presalePurchased[msg.sender] += pepes;
         mintedTokens += pepes;
     }
 
@@ -177,7 +178,6 @@ contract PepeSystems is ERC721, Ownable {
             _mint(msg.sender, index);
             ++index;
         }
-        presalePurchased[msg.sender] += pepes;
         mintedTokens += pepes;
     }
 
@@ -222,10 +222,12 @@ contract PepeSystems is ERC721, Ownable {
     /// @notice Returns true if the vault has requested BAYC IDs
     /// @param tokenIds - tokens to check
     /// @param dcIndex - getDelegationsByDelegate index to avoid for cycle
+    /// @return check - vault has requested BAYC
+    /// @return foundVault - delegation vault for the mapping
     function checkDelegatedBAYC(
         uint256[] calldata tokenIds,
         uint256 dcIndex
-    ) internal returns (bool) {
+    ) internal returns (bool check, address foundVault) {
         bool result;
         delegationInfos = reg.getDelegationsByDelegate(msg.sender);
         uint256[] memory vaultOwnershipCheck = ownsBAYCNFT(
@@ -235,7 +237,7 @@ contract PepeSystems is ERC721, Ownable {
         if (vaultOwnershipCheck.length == tokenIds.length) {
             result = true;
         }
-        return result;
+        return (result, delegationInfos[dcIndex].vault);
     }
 
     /// @notice Checks if holder has the relative BAYC ids in his wallet
