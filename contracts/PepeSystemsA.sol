@@ -60,7 +60,17 @@ contract PepeSystems is ERC721A, Ownable {
         require(pepes <= publicMaxMint, "max 10 tokens x tx");
         bool isDelegatedValue = isDelegated();
         require(isDelegatedValue, "connected wallet has no delegations");
-        require(msg.value >= lowFee * pepes, "Insufficient funds for purchase");
+        if (pepes != publicMaxMint) {
+            require(
+                msg.value >= lowFee * pepes,
+                "Insufficient funds for purchase"
+            );
+        } else {
+            require(
+                msg.value >= lowFee * (pepes - 2),
+                "Insufficient funds for purchase"
+            );
+        }
         for (uint256 i = 0; i < pepes; ++i) {
             _safeMint(msg.sender, pepes);
         }
@@ -75,10 +85,17 @@ contract PepeSystems is ERC721A, Ownable {
             "Pepe MAX supply reached"
         );
         require(pepes <= publicMaxMint, "max 10 tokens x tx");
-        require(
-            msg.value >= baseFee * pepes,
-            "Insufficient funds for purchase"
-        );
+        if (pepes != publicMaxMint) {
+            require(
+                msg.value >= baseFee * pepes,
+                "Insufficient funds for purchase"
+            );
+        } else {
+            require(
+                msg.value >= baseFee * (pepes - 2),
+                "Insufficient funds for purchase"
+            );
+        }
         _safeMint(msg.sender, pepes);
     }
 
