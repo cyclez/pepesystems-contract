@@ -89,14 +89,25 @@ contract PepeSystems is ERC721A, Ownable {
         require(!claimed[msg.sender], "Pepe already claimed");
         _safeMint(msg.sender, 1);
         claimed[msg.sender] = true;
+        --claimReserve;
     }
 
     /// @notice Reserves specified number of pepes to a wallet
     /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
     function mintTeamReserve(uint256 pepes) external onlyOwner {
         require(totalSupply() + pepes <= supply, "supply is full");
-        require(pepes <= teamReserve, "sinting too many");
+        require(pepes <= teamReserve, "minting too many");
         _safeMint(msg.sender, pepes);
+        teamReserve -= pepes;
+    }
+
+    /// @notice Gift a give number of pepes into a specific wallet
+    /// @param wallet - wallet address to mint to
+    /// @param pepes - total number of pepes to gift
+    function gitfTeamReserve(address wallet, uint256 pepes) external onlyOwner {
+        require(totalSupply() + pepes <= supply, "supply is full");
+        require(pepes <= teamReserve, "minting too many");
+        _safeMint(wallet, pepes);
         teamReserve -= pepes;
     }
 
