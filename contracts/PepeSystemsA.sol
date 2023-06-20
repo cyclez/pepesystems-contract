@@ -5,16 +5,19 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../lib/DelegationRegistry.sol";
 import "../lib/IDelegationRegistry.sol";
 import "hardhat/console.sol";
 
 pragma solidity ^0.8.17;
 
-contract PepeSystems is ERC721A, Ownable {
+contract PepeSystems is ERC721A, Ownable, ReentrancyGuard {
     using SafeMath for uint256;
     using Strings for uint256;
+    using Address for address;
     string public pepeUrl;
     uint256 public supply = 12222;
     uint256 public teamReserve = 222;
@@ -219,7 +222,7 @@ contract PepeSystems is ERC721A, Ownable {
     }
 
     /// @notice Withdraw funds to team
-    function withdraw() external onlyOwner {
+    function withdraw() external onlyOwner nonReentrant {
         uint256 balance = address(this).balance;
         require(balance > 0, "No funds to withdraw");
         require(payable(ceo).send(balance / 2));
