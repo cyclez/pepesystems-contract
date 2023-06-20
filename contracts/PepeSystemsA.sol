@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import "erc721a/contracts/ERC721A.sol";
+import "erc721a/contracts/extensions/ERC721ABurnable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -14,7 +14,7 @@ import "hardhat/console.sol";
 
 pragma solidity ^0.8.17;
 
-contract PepeSystems is ERC721A, Ownable, ReentrancyGuard {
+contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     using SafeMath for uint256;
     using Strings for uint256;
     using Address for address;
@@ -233,7 +233,7 @@ contract PepeSystems is ERC721A, Ownable, ReentrancyGuard {
     /// @param tokenId - token Id of pepe to retreive metadata for
     function tokenURI(
         uint256 tokenId
-    ) public view virtual override returns (string memory) {
+    ) public view virtual override(ERC721A, IERC721A) returns (string memory) {
         require(
             _exists(tokenId),
             "ERC721Metadata: URI query for nonexistent token"
