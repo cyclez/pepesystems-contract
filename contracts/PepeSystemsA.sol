@@ -102,10 +102,10 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     function claimPurchase(bytes32[] calldata proof) public payable {
         require(saleStatus == SaleStatus.CLAIM, "Claim is OFF");
         require(_totalMinted() + 1 <= supply - teamReserve - claimReserve);
-        require(verifyClaimList(msg.sender, proof), "Not on Claim List");
+        require(verifyClaimList(proof), "Not on Claim List");
         require(!claimed[msg.sender], "Pepe already claimed");
-        _mint(msg.sender, 1);
         claimed[msg.sender] = true;
+        _mint(msg.sender, 1);
         --claimReserve;
     }
 
@@ -143,22 +143,20 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         return result;
     }
 
-    /// @dev internal function to verify claimlist
+    /// @notice internal function to verify claimlist
     function verifyClaimList(
-        address wallet,
         bytes32[] calldata proof
     ) internal view returns (bool) {
-        bytes32 leaf = keccak256(abi.encodePacked(wallet));
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
         return MerkleProof.verifyCalldata(proof, claimList, leaf);
     }
 
     /// @notice Check if wallet is on claimList
     /// @param proof - proof that wallet is on claimList
     function isOnCLaimList(
-        address wallet,
         bytes32[] calldata proof
     ) external view returns (bool) {
-        return verifyClaimList(wallet, proof);
+        return verifyClaimList(proof);
     }
 
     /**
