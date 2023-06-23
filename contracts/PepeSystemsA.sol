@@ -24,7 +24,7 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     uint256 public baseFee = 0.04 ether;
     uint256 public lowFee = 0.03 ether;
     bool public revealed = false;
-    bytes32 public claimList;
+    bytes32 public claimListRoot = 0x0;
     mapping(address => bool) claimed;
     address constant delegateCashContract =
         0x00000000000076A84feF008CDAbe6409d2FE638B;
@@ -148,11 +148,11 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         bytes32[] calldata proof
     ) internal view returns (bool) {
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
-        return MerkleProof.verifyCalldata(proof, claimList, leaf);
+        return MerkleProof.verifyCalldata(proof, claimListRoot, leaf);
     }
 
-    /// @notice Check if wallet is on claimList
-    /// @param proof - proof that wallet is on claimList
+    /// @notice Check if wallet is on claimListRoot
+    /// @param proof - proof that wallet is on claimListRoot
     function isOnCLaimList(
         bytes32[] calldata proof
     ) external view returns (bool) {
