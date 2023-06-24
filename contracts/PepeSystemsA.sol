@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "../lib/DelegationRegistry.sol";
 import "../lib/IDelegationRegistry.sol";
 import "hardhat/console.sol";
@@ -26,6 +27,8 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     uint256 public publicMaxMint = 10;
     uint256 public baseFee = 0.04 ether;
     uint256 public lowFee = 0.03 ether;
+    uint256 public pepeBaseFee;
+    uint256 public pepeLowFee;
     bool public revealed = false;
     bytes32 public claimListRoot = 0x0;
     mapping(address => bool) claimed;
@@ -33,6 +36,9 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         0x00000000000076A84feF008CDAbe6409d2FE638B;
     address constant pepeTokenContract =
         0x6982508145454Ce325dDbE47a25d4ec3d2311933;
+    address public UniSwapV2RouterAddress =
+        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address constant pepeEthPair = 0xA43fe16908251ee70EF74718545e4FE6C5cCEc9f;
     address ceo = 0x0000000000000000000000000000000000000000;
     address cto = 0x0000000000000000000000000000000000000000;
     DelegationRegistry reg;
@@ -55,7 +61,10 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
 
     /// @notice Mint in public with a delegated wallet
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
-    function publicDelegatedPurchase(uint256 pepes) public payable {
+    function publicDelegatedPurchase(
+        uint256 pepes,
+        address wallet
+    ) public payable {
         require(saleStatus == SaleStatus.PUBLIC, "Public sale is off");
         require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
@@ -65,18 +74,18 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         require(pepes <= publicMaxMint, "max 10 tokens x tx");
         bool isDelegatedValue = isDelegated();
         require(isDelegatedValue, "connected wallet has no delegations");
-        if (pepes != publicMaxMint) {
+        if (pepes == publicMaxMint) {
             require(
-                msg.value >= lowFee * pepes,
+                msg.value >= lowFee * (pepes - 1),
                 "Insufficient funds for purchase"
             );
         } else {
             require(
-                msg.value >= lowFee * (pepes - 2),
+                msg.value >= lowFee * pepes,
                 "Insufficient funds for purchase"
             );
         }
-        _mint(msg.sender, pepes);
+        _mint(wallet, pepes);
     }
 
     /// @notice Mint a pepe by public mint
@@ -90,14 +99,14 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
             "Public Sale supply maxed out"
         );
         require(pepes <= publicMaxMint, "max 10 tokens x tx");
-        if (pepes != publicMaxMint) {
+        if (pepes == publicMaxMint) {
             require(
-                msg.value >= baseFee * pepes,
+                msg.value >= lowFee * (pepes - 1),
                 "Insufficient funds for purchase"
             );
         } else {
             require(
-                msg.value >= baseFee * (pepes - 1),
+                msg.value >= lowFee * pepes,
                 "Insufficient funds for purchase"
             );
         }
@@ -141,8 +150,8 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
             "Team reserve already fully minted"
         );
         require(pepes <= teamReserve, "minting too many");
-        _mint(wallet, pepes);
         teamMinted += pepes;
+        _mint(wallet, pepes);
     }
 
     /**
@@ -174,6 +183,27 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         bytes32[] calldata proof
     ) external view returns (bool) {
         return verifyClaimList(proof);
+    }
+
+    function approvePepe(uint256 amount) external {
+        IERC20(pepeTokenContract).approve(address(this), amount);
+    }
+
+    function calculateTokensFromEth(
+        address uniswapRouterAddress,
+        address tokenAddress,
+        uint256 ethAmount
+    ) external view returns (uint256) {
+        IUniswapV2Router02 uniswapRouter = IUniswapV2Router02(
+            uniswapRouterAddress
+        );
+
+        address[] memory path = new address[](2);
+        path[0] = uniswapRouter.WETH();
+        path[1] = tokenAddress;
+
+        uint256[] memory amounts = uniswapRouter.getAmountsOut(ethAmount, path);
+        return amounts[1];
     }
 
     /**
