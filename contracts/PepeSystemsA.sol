@@ -27,29 +27,18 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     uint256 public publicMaxMint = 10;
     uint256 public baseFee = 0.04 ether;
     uint256 public lowFee = 0.03 ether;
-    uint256 public pepeBaseFee;
-    uint256 public pepeLowFee;
     bool public revealed = false;
     bytes32 public claimListRoot = 0x0;
-    mapping(address => bool) claimed;
     address constant delegateCashContract =
         0x00000000000076A84feF008CDAbe6409d2FE638B;
     address constant pepeTokenContract =
         0x6982508145454Ce325dDbE47a25d4ec3d2311933;
     address public UniSwapV2RouterAddress =
         0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-    address constant pepeEthPair = 0xA43fe16908251ee70EF74718545e4FE6C5cCEc9f;
     address public ceo = 0x0000000000000000000000000000000000000000;
     address public cto = 0x0000000000000000000000000000000000000000;
     DelegationRegistry reg;
-
-    enum SaleStatus {
-        OFF,
-        PUBLIC,
-        CLAIM
-    }
-
-    SaleStatus public saleStatus;
+    bool public saleStatus = false;
 
     constructor() ERC721A("Pepe Systems", "PS") {
         reg = DelegationRegistry(delegateCashContract);
@@ -65,7 +54,7 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         uint256 pepes,
         address wallet
     ) public payable {
-        require(saleStatus == SaleStatus.PUBLIC, "Public sale is off");
+        require(saleStatus == true, "Public sale is off");
         require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
             publicMinted + pepes <= supply - teamReserve - claimReserve,
@@ -88,11 +77,11 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         _mint(wallet, pepes);
     }
 
-    /// @notice Mint a pepe by public mint
+    /// @notice Mint public sale
     /// @notice Mint 10 and pay 9
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
     function publicPurchase(uint256 pepes) public payable {
-        require(saleStatus == SaleStatus.PUBLIC, "Public sale is off");
+        require(saleStatus == true, "Public sale is off");
         require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
             publicMinted + pepes <= supply - teamReserve - claimReserve,
@@ -113,8 +102,11 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         _mint(msg.sender, pepes);
     }
 
+    /// @notice Mint public sale with $PEPE
+    /// @notice Mint 10 and pay 9
+    /// @param pepes - total number of pepes to mint (must be less than purchase limit)
     function publicPurchasePepe(uint256 pepes) public payable {
-        require(saleStatus == SaleStatus.PUBLIC, "Public sale is off");
+        require(saleStatus == true, "Public sale is off");
         require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
             publicMinted + pepes <= supply - teamReserve - claimReserve,
@@ -128,7 +120,7 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         } else {
             pepeAmount = pepeTokenPrice * pepes;
         }
-        approvePepe(pepeAmount);
+        require(approvePepe(pepeAmount), "Amount not approved");
         require(
             IERC20(pepeTokenContract).transferFrom(
                 msg.sender,
@@ -141,7 +133,7 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     }
 
     function claimPurchase(bytes32[] calldata proof) public payable {
-        require(saleStatus == SaleStatus.CLAIM, "Claim is OFF");
+        require(saleStatus == true, "Claim is OFF");
         require(
             claimMinted <= claimReserve,
             "Claim reserve already fully minted"
@@ -149,7 +141,9 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         require(_totalMinted() + 1 < supply, "Supply is full");
         require(verifyClaimList(proof), "Not on Claim List");
         require(_getAux(msg.sender) < 1, "Pepe already claimed");
-        ++claimMinted;
+        unchecked {
+            ++claimMinted;
+        }
         _setAux(msg.sender, 1);
         _mint(msg.sender, 1);
     }
@@ -212,8 +206,9 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         return verifyClaimList(proof);
     }
 
-    function approvePepe(uint256 amount) internal {
-        IERC20(pepeTokenContract).approve(address(this), amount);
+    function approvePepe(uint256 amount) internal returns (bool) {
+        bool check = IERC20(pepeTokenContract).approve(address(this), amount);
+        return check;
     }
 
     function calculateTokensFromEth(
@@ -247,12 +242,6 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         claimReserve = _claimReserve;
     }
 
-    /// @notice set team reserve
-    /// @param _teamReserve new reserved supply for the team
-    function setTeamReserve(uint256 _teamReserve) external onlyOwner {
-        teamReserve = _teamReserve;
-    }
-
     /// @notice Set publicMaxMint limit
     /// @param _publicMaxMint new mint limit per wallet
     function setPublicMaxMint(uint256 _publicMaxMint) external onlyOwner {
@@ -278,9 +267,9 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     }
 
     /// @notice Set pepe status
-    /// @param _status new pepe status can be 0, 1, 2, 3 for Off, Public, Team and Claim statuses respectively
-    function setSaleStatus(uint256 _status) external onlyOwner {
-        saleStatus = SaleStatus(_status);
+    /// @param _saleStatus sale ON or OFF
+    function setSaleStatus(bool _saleStatus) external onlyOwner {
+        saleStatus = _saleStatus;
     }
 
     /// @notice Set supply
