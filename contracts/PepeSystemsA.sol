@@ -129,6 +129,14 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
             pepeAmount = pepeTokenPrice * pepes;
         }
         approvePepe(pepeAmount);
+        require(
+            IERC20(pepeTokenContract).transferFrom(
+                msg.sender,
+                address(this),
+                pepeAmount
+            ),
+            "$PEPE transfer failed"
+        );
         _mint(msg.sender, pepes);
     }
 
