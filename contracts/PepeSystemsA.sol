@@ -20,6 +20,9 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     uint256 public supply = 12222;
     uint256 public teamReserve = 222;
     uint256 public claimReserve;
+    uint256 public publicMinted;
+    uint256 public claimMinted;
+    uint256 public teamMinted;
     uint256 public publicMaxMint = 10;
     uint256 public baseFee = 0.04 ether;
     uint256 public lowFee = 0.03 ether;
@@ -37,7 +40,6 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     enum SaleStatus {
         OFF,
         PUBLIC,
-        TEAM,
         CLAIM
     }
 
@@ -55,8 +57,9 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
     function publicDelegatedPurchase(uint256 pepes) public payable {
         require(saleStatus == SaleStatus.PUBLIC, "Public sale is off");
+        require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
-            _totalMinted() + pepes <= supply - teamReserve - claimReserve,
+            publicMinted + pepes <= supply - teamReserve - claimReserve,
             "Pepe MAX supply reached"
         );
         require(pepes <= publicMaxMint, "max 10 tokens x tx");
@@ -77,12 +80,14 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     }
 
     /// @notice Mint a pepe by public mint
+    /// @notice Mint 10 and pay 9
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
     function publicPurchase(uint256 pepes) public payable {
         require(saleStatus == SaleStatus.PUBLIC, "Public sale is off");
+        require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
-            _totalMinted() + pepes <= supply - teamReserve - claimReserve,
-            "Pepe MAX supply reached"
+            publicMinted + pepes <= supply - teamReserve - claimReserve,
+            "Public Sale supply maxed out"
         );
         require(pepes <= publicMaxMint, "max 10 tokens x tx");
         if (pepes != publicMaxMint) {
@@ -92,7 +97,7 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
             );
         } else {
             require(
-                msg.value >= baseFee * (pepes - 2),
+                msg.value >= baseFee * (pepes - 1),
                 "Insufficient funds for purchase"
             );
         }
@@ -101,21 +106,29 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
 
     function claimPurchase(bytes32[] calldata proof) public payable {
         require(saleStatus == SaleStatus.CLAIM, "Claim is OFF");
-        require(_totalMinted() + 1 <= supply - teamReserve - claimReserve);
+        require(
+            claimMinted <= claimReserve,
+            "Claim reserve already fully minted"
+        );
+        require(_totalMinted() + 1 < supply, "Supply is full");
         require(verifyClaimList(proof), "Not on Claim List");
-        require(!claimed[msg.sender], "Pepe already claimed");
-        claimed[msg.sender] = true;
+        require(_getAux(msg.sender) < 1, "Pepe already claimed");
+        ++claimMinted;
+        _setAux(msg.sender, 1);
         _mint(msg.sender, 1);
-        --claimReserve;
     }
 
     /// @notice Reserves specified number of pepes to a wallet
     /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
     function mintTeamReserve(uint256 pepes) external onlyOwner {
         require(_totalMinted() + pepes <= supply, "supply is full");
+        require(
+            teamMinted + pepes <= teamReserve,
+            "Team reserve already fully minted"
+        );
         require(pepes <= teamReserve, "minting too many");
+        teamMinted += pepes;
         _mint(msg.sender, pepes);
-        teamReserve -= pepes;
     }
 
     /// @notice Gift a give number of pepes into a specific wallet
@@ -123,9 +136,13 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     /// @param pepes - total number of pepes to gift
     function gitfTeamReserve(address wallet, uint256 pepes) external onlyOwner {
         require(_totalMinted() + pepes <= supply, "supply is full");
+        require(
+            teamMinted + pepes <= teamReserve,
+            "Team reserve already fully minted"
+        );
         require(pepes <= teamReserve, "minting too many");
         _mint(wallet, pepes);
-        teamReserve -= pepes;
+        teamMinted += pepes;
     }
 
     /**
