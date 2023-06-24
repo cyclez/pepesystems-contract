@@ -39,8 +39,8 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     address public UniSwapV2RouterAddress =
         0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address constant pepeEthPair = 0xA43fe16908251ee70EF74718545e4FE6C5cCEc9f;
-    address ceo = 0x0000000000000000000000000000000000000000;
-    address cto = 0x0000000000000000000000000000000000000000;
+    address public ceo = 0x0000000000000000000000000000000000000000;
+    address public cto = 0x0000000000000000000000000000000000000000;
     DelegationRegistry reg;
 
     enum SaleStatus {
@@ -190,17 +190,15 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     }
 
     function calculateTokensFromEth(
-        address uniswapRouterAddress,
-        address tokenAddress,
         uint256 ethAmount
     ) external view returns (uint256) {
         IUniswapV2Router02 uniswapRouter = IUniswapV2Router02(
-            uniswapRouterAddress
+            UniSwapV2RouterAddress
         );
 
         address[] memory path = new address[](2);
         path[0] = uniswapRouter.WETH();
-        path[1] = tokenAddress;
+        path[1] = pepeTokenContract;
 
         uint256[] memory amounts = uniswapRouter.getAmountsOut(ethAmount, path);
         return amounts[1];
