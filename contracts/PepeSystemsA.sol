@@ -157,7 +157,9 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
             "Team reserve already fully minted"
         );
         require(pepes <= teamReserve, "minting too many");
-        teamMinted += pepes;
+        unchecked {
+            teamMinted += pepes;
+        }
         _mint(msg.sender, pepes);
     }
 
@@ -171,7 +173,9 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
             "Team reserve already fully minted"
         );
         require(pepes <= teamReserve, "minting too many");
-        teamMinted += pepes;
+        unchecked {
+            teamMinted += pepes;
+        }
         _mint(wallet, pepes);
     }
 
