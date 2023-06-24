@@ -101,15 +101,34 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         require(pepes <= publicMaxMint, "max 10 tokens x tx");
         if (pepes == publicMaxMint) {
             require(
-                msg.value >= lowFee * (pepes - 1),
+                msg.value >= baseFee * (pepes - 1),
                 "Insufficient funds for purchase"
             );
         } else {
             require(
-                msg.value >= lowFee * pepes,
+                msg.value >= baseFee * pepes,
                 "Insufficient funds for purchase"
             );
         }
+        _mint(msg.sender, pepes);
+    }
+
+    function publicPurchasePepe(uint256 pepes) public payable {
+        require(saleStatus == SaleStatus.PUBLIC, "Public sale is off");
+        require(_totalMinted() + pepes <= supply, "Supply is full");
+        require(
+            publicMinted + pepes <= supply - teamReserve - claimReserve,
+            "Public Sale supply maxed out"
+        );
+        require(pepes <= publicMaxMint, "max 10 tokens x tx");
+        uint256 pepeTokenPrice = calculateTokensFromEth(baseFee);
+        uint256 pepeAmount;
+        if (pepes == publicMaxMint) {
+            pepeAmount = pepeTokenPrice * (pepes - 1);
+        } else {
+            pepeAmount = pepeTokenPrice * pepes;
+        }
+        approvePepe(pepeAmount);
         _mint(msg.sender, pepes);
     }
 
@@ -185,13 +204,13 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         return verifyClaimList(proof);
     }
 
-    function approvePepe(uint256 amount) external {
+    function approvePepe(uint256 amount) internal {
         IERC20(pepeTokenContract).approve(address(this), amount);
     }
 
     function calculateTokensFromEth(
         uint256 ethAmount
-    ) external view returns (uint256) {
+    ) internal view returns (uint256) {
         IUniswapV2Router02 uniswapRouter = IUniswapV2Router02(
             UniSwapV2RouterAddress
         );
