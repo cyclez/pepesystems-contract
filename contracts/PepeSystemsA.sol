@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import "erc721a/contracts/extensions/ERC721ABurnable.sol";
+import "erc721a/contracts/extensions/ERC721AQueryable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -14,7 +15,13 @@ import "hardhat/console.sol";
 
 pragma solidity ^0.8.17;
 
-contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
+contract PepeSystems is
+    ERC721A,
+    ERC721ABurnable,
+    ERC721AQueryable,
+    Ownable,
+    ReentrancyGuard
+{
     using Strings for uint256;
     using Address for address;
     string public pepeUrl;
@@ -54,15 +61,15 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         uint256 pepes,
         address wallet
     ) public payable {
-        require(saleStatus == true, "Public sale is off");
+        require(saleStatus == true, "Sale is off");
         require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
             publicMinted + pepes <= supply - teamReserve - claimReserve,
             "Pepe MAX supply reached"
         );
-        require(pepes <= publicMaxMint, "max 10 tokens x tx");
+        require(pepes <= publicMaxMint, "Max 10 tokens x tx");
         bool isDelegatedValue = isDelegated();
-        require(isDelegatedValue, "connected wallet has no delegations");
+        require(isDelegatedValue, "Connected wallet has no delegations");
         if (pepes == publicMaxMint) {
             require(
                 msg.value >= lowFee * (pepes - 1),
@@ -77,17 +84,49 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
         _mint(wallet, pepes);
     }
 
-    /// @notice Mint public sale
+    /// @notice Mint public sale with $PEPE
     /// @notice Mint 10 and pay 9
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
-    function publicPurchase(uint256 pepes) public payable {
-        require(saleStatus == true, "Public sale is off");
+    function publicDelegatedPurchasePepe(uint256 pepes) public payable {
+        require(saleStatus == true, "Sale is off");
         require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
             publicMinted + pepes <= supply - teamReserve - claimReserve,
             "Public Sale supply maxed out"
         );
-        require(pepes <= publicMaxMint, "max 10 tokens x tx");
+        bool isDelegatedValue = isDelegated();
+        require(isDelegatedValue, "Connected wallet has no delegations");
+        require(pepes <= publicMaxMint, "Max 10 tokens x tx");
+        uint256 pepeTokenPrice = calculateTokensFromEth(lowFee);
+        uint256 pepeAmount;
+        if (pepes == publicMaxMint) {
+            pepeAmount = pepeTokenPrice * (pepes - 1);
+        } else {
+            pepeAmount = pepeTokenPrice * pepes;
+        }
+        require(approvePepe(pepeAmount), "Amount not approved");
+        require(
+            IERC20(pepeTokenContract).transferFrom(
+                msg.sender,
+                address(this),
+                pepeAmount
+            ),
+            "$PEPE transfer failed"
+        );
+        _mint(msg.sender, pepes);
+    }
+
+    /// @notice Mint public sale
+    /// @notice Mint 10 and pay 9
+    /// @param pepes - total number of pepes to mint (must be less than purchase limit)
+    function publicPurchase(uint256 pepes) public payable {
+        require(saleStatus == true, "Sale is off");
+        require(_totalMinted() + pepes <= supply, "Supply is full");
+        require(
+            publicMinted + pepes <= supply - teamReserve - claimReserve,
+            "Public Sale supply maxed out"
+        );
+        require(pepes <= publicMaxMint, "Max 10 tokens x tx");
         if (pepes == publicMaxMint) {
             require(
                 msg.value >= baseFee * (pepes - 1),
@@ -112,7 +151,7 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
             publicMinted + pepes <= supply - teamReserve - claimReserve,
             "Public Sale supply maxed out"
         );
-        require(pepes <= publicMaxMint, "max 10 tokens x tx");
+        require(pepes <= publicMaxMint, "Max 10 tokens x tx");
         uint256 pepeTokenPrice = calculateTokensFromEth(baseFee);
         uint256 pepeAmount;
         if (pepes == publicMaxMint) {
@@ -151,12 +190,12 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     /// @notice Reserves specified number of pepes to a wallet
     /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
     function mintTeamReserve(uint256 pepes) external onlyOwner {
-        require(_totalMinted() + pepes <= supply, "supply is full");
+        require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
             teamMinted + pepes <= teamReserve,
             "Team reserve already fully minted"
         );
-        require(pepes <= teamReserve, "minting too many");
+        require(pepes <= teamReserve, "Minting too many");
         unchecked {
             teamMinted += pepes;
         }
@@ -167,12 +206,12 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     /// @param wallet - wallet address to mint to
     /// @param pepes - total number of pepes to gift
     function gitfTeamReserve(address wallet, uint256 pepes) external onlyOwner {
-        require(_totalMinted() + pepes <= supply, "supply is full");
+        require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
             teamMinted + pepes <= teamReserve,
             "Team reserve already fully minted"
         );
-        require(pepes <= teamReserve, "minting too many");
+        require(pepes <= teamReserve, "Minting too many");
         unchecked {
             teamMinted += pepes;
         }
@@ -285,9 +324,17 @@ contract PepeSystems is ERC721A, ERC721ABurnable, Ownable, ReentrancyGuard {
     /// @notice Withdraw funds to team
     function withdraw() external onlyOwner nonReentrant {
         uint256 balance = address(this).balance;
-        require(balance > 0, "No funds to withdraw");
+        require(balance > 0, "No ETH funds to withdraw");
         require(payable(ceo).send(balance / 2));
         require(payable(cto).send(balance / 2));
+        // Add ERC-20 token withdrawal code here
+        uint256 tokenBalance = IERC20(pepeTokenContract).balanceOf(
+            address(this)
+        );
+        require(tokenBalance > 0, "No token funds to withdraw");
+
+        require(IERC20(pepeTokenContract).transfer(ceo, tokenBalance / 2));
+        require(IERC20(pepeTokenContract).transfer(cto, tokenBalance / 2));
     }
 
     /// @notice Token URI
