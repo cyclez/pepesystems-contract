@@ -279,6 +279,12 @@ contract PepeSystems is
         pepeUrl = _pepeUrl;
     }
 
+    /// @notice Set supply
+    /// @param _supply number of tokens in the supply
+    function setSupply(uint256 _supply) external onlyOwner {
+        supply = _supply;
+    }
+
     /// @notice set claimable reserve
     /// @param _claimReserve new reserved supply for free claim
     function setClaimReserve(uint256 _claimReserve) external onlyOwner {
@@ -309,16 +315,28 @@ contract PepeSystems is
         revealed = _revealed;
     }
 
+    /// @notice set claim list root
+    /// @param _claimListRoot root of the claim list
+    function setClaimListRoot(bytes32 _claimListRoot) external onlyOwner {
+        claimListRoot = _claimListRoot;
+    }
+
     /// @notice Set pepe status
     /// @param _saleStatus sale ON or OFF
     function setSaleStatus(bool _saleStatus) external onlyOwner {
         saleStatus = _saleStatus;
     }
 
-    /// @notice Set supply
-    /// @param _supply number of tokens in the supply
-    function setSupply(uint256 _supply) external onlyOwner {
-        supply = _supply;
+    /// @notice set ceo wallet
+    /// @param _ceo ceo wallet
+    function setCeoWallet(address _ceo) external onlyOwner {
+        ceo = _ceo;
+    }
+
+    /// @notice set cto wallet
+    /// @param _cto cto wallet
+    function setCtoWallet(address _cto) external onlyOwner {
+        cto = _cto;
     }
 
     /// @notice Withdraw funds to team
