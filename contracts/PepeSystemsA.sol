@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
 
 import "erc721a/contracts/extensions/ERC721ABurnable.sol";
 import "erc721a/contracts/extensions/ERC721AQueryable.sol";
@@ -13,7 +14,50 @@ import "../lib/DelegationRegistry.sol";
 import "../lib/IDelegationRegistry.sol";
 import "hardhat/console.sol";
 
-pragma solidity ^0.8.17;
+//PPPPPPPPPPPPPPPPP
+//P::::::::::::::::P
+//P::::::PPPPPP:::::P
+//PP:::::P     P:::::P
+//  P::::P     P:::::P  eeeeeeeeeeee    ppppp   ppppppppp       eeeeeeeeeeee
+//  P::::P     P:::::Pee::::::::::::ee  p::::ppp:::::::::p    ee::::::::::::ee
+//  P::::PPPPPP:::::Pe::::::eeeee:::::eep:::::::::::::::::p  e::::::eeeee:::::ee
+//  P:::::::::::::PPe::::::e     e:::::epp::::::ppppp::::::pe::::::e     e:::::e
+//  P::::PPPPPPPPP  e:::::::eeeee::::::e p:::::p     p:::::pe:::::::eeeee::::::e
+//  P::::P          e:::::::::::::::::e  p:::::p     p:::::pe:::::::::::::::::e
+//  P::::P          e::::::eeeeeeeeeee   p:::::p     p:::::pe::::::eeeeeeeeeee
+//  P::::P          e:::::::e            p:::::p    p::::::pe:::::::e
+//PP::::::PP        e::::::::e           p:::::ppppp:::::::pe::::::::e
+//P::::::::P         e::::::::eeeeeeee   p::::::::::::::::p  e::::::::eeeeeeee
+//P::::::::P          ee:::::::::::::e   p::::::::::::::pp    ee:::::::::::::e
+//PPPPPPPPPP            eeeeeeeeeeeeee   p::::::pppppppp        eeeeeeeeeeeeee
+//                                       p:::::p
+//                                       p:::::p
+//                                      p:::::::p
+//                                      p:::::::p
+//                                      p:::::::p
+//                                      ppppppppp
+
+//   SSSSSSSSSSSSSSS                                            tttt
+// SS:::::::::::::::S                                        ttt:::t
+//S:::::SSSSSS::::::S                                        t:::::t
+//S:::::S     SSSSSSS                                        t:::::t
+//S:::::S      yyyyyyy           yyyyyyy  ssssssssss   ttttttt:::::ttttttt        eeeeeeeeeeee       mmmmmmm    mmmmmmm       ssssssssss
+//S:::::S       y:::::y         y:::::y ss::::::::::s  t:::::::::::::::::t      ee::::::::::::ee   mm:::::::m  m:::::::mm   ss::::::::::s
+// S::::SSSS     y:::::y       y:::::yss:::::::::::::s t:::::::::::::::::t     e::::::eeeee:::::eem::::::::::mm::::::::::mss:::::::::::::s
+//  SS::::::SSSSS y:::::y     y:::::y s::::::ssss:::::stttttt:::::::tttttt    e::::::e     e:::::em::::::::::::::::::::::ms::::::ssss:::::s
+//    SSS::::::::SSy:::::y   y:::::y   s:::::s  ssssss       t:::::t          e:::::::eeeee::::::em:::::mmm::::::mmm:::::m s:::::s  ssssss
+//       SSSSSS::::Sy:::::y y:::::y      s::::::s            t:::::t          e:::::::::::::::::e m::::m   m::::m   m::::m   s::::::s
+//            S:::::Sy:::::y:::::y          s::::::s         t:::::t          e::::::eeeeeeeeeee  m::::m   m::::m   m::::m      s::::::s
+//            S:::::S y:::::::::y     ssssss   s:::::s       t:::::t    tttttte:::::::e           m::::m   m::::m   m::::mssssss   s:::::s
+//SSSSSSS     S:::::S  y:::::::y      s:::::ssss::::::s      t::::::tttt:::::te::::::::e          m::::m   m::::m   m::::ms:::::ssss::::::s
+//S::::::SSSSSS:::::S   y:::::y       s::::::::::::::s       tt::::::::::::::t e::::::::eeeeeeee  m::::m   m::::m   m::::ms::::::::::::::s
+//S:::::::::::::::SS   y:::::y         s:::::::::::ss          tt:::::::::::tt  ee:::::::::::::e  m::::m   m::::m   m::::m s:::::::::::ss
+// SSSSSSSSSSSSSSS    y:::::y           sssssssssss              ttttttttttt      eeeeeeeeeeeeee  mmmmmm   mmmmmm   mmmmmm  sssssssssss
+//                   y:::::y
+//                  y:::::y
+//                 y:::::y
+//                y:::::y
+//               yyyyyyy
 
 contract PepeSystems is
     ERC721A,
