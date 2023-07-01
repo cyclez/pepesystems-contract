@@ -131,7 +131,10 @@ contract PepeSystems is
     /// @notice Mint public sale with $PEPE
     /// @notice Mint 10 and pay 9
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
-    function publicDelegatedPurchasePepe(uint256 pepes) public payable {
+    function publicDelegatedPurchasePepe(
+        uint256 pepes,
+        address wallet
+    ) public payable {
         require(saleStatus == true, "Sale is off");
         require(_totalMinted() + pepes <= supply, "Supply is full");
         require(
@@ -157,7 +160,7 @@ contract PepeSystems is
             ),
             "$PEPE transfer failed"
         );
-        _mint(msg.sender, pepes);
+        _mint(wallet, pepes);
     }
 
     /// @notice Mint public sale
