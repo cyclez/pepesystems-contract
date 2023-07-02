@@ -76,8 +76,8 @@ contract PepeSystems is
     uint256 public claimMinted;
     uint256 public teamMinted;
     uint256 public publicMaxMint = 10;
-    uint256 public baseFee = 0.04 ether;
-    uint256 public lowFee = 0.03 ether;
+    uint256 public baseFee = 0.03 ether;
+    uint256 public lowFee = 0.02 ether;
     bool public revealed = false;
     bytes32 public claimListRoot = 0x0;
     address constant delegateCashContract =
