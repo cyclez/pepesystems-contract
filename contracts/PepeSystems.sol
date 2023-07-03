@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "erc721a/contracts/extensions/ERC721ABurnable.sol";
 import "erc721a/contracts/extensions/ERC721AQueryable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -63,6 +64,7 @@ contract PepeSystems is
     ERC721A,
     ERC721ABurnable,
     ERC721AQueryable,
+    ERC2981,
     Ownable,
     ReentrancyGuard
 {
@@ -93,6 +95,7 @@ contract PepeSystems is
 
     constructor() ERC721A("Pepe Systems", "PS") {
         reg = DelegationRegistry(delegateCashContract);
+        setDefaultRoyalty(msg.sender, 5); // 5%
     }
 
     /**
@@ -386,20 +389,14 @@ contract PepeSystems is
         cto = _cto;
     }
 
-    /// @notice Withdraw funds to team
-    function withdraw() external onlyOwner nonReentrant {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "No ETH funds to withdraw");
-        require(payable(ceo).send(balance / 2));
-        require(payable(cto).send(balance / 2));
-        // Add ERC-20 token withdrawal code here
-        uint256 tokenBalance = IERC20(pepeTokenContract).balanceOf(
-            address(this)
-        );
-        require(tokenBalance > 0, "No token funds to withdraw");
-
-        require(IERC20(pepeTokenContract).transfer(ceo, tokenBalance / 2));
-        require(IERC20(pepeTokenContract).transfer(cto, tokenBalance / 2));
+    /// @notice set the secondary sales royalties % and receiver
+    /// @param _receiver fee's receiver
+    /// @param _feeNumerator fee's percentage
+    function setDefaultRoyalty(
+        address _receiver,
+        uint96 _feeNumerator
+    ) public onlyOwner {
+        setDefaultRoyalty(_receiver, _feeNumerator);
     }
 
     /// @notice Token URI
@@ -416,5 +413,31 @@ contract PepeSystems is
             revealed
                 ? string(abi.encodePacked(pepeUrl, tokenId.toString()))
                 : string(abi.encodePacked(pepeUrl));
+    }
+
+    /**
+     * -----------  OTHERS FUNCTIONS -----------
+     */
+
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(ERC2981, ERC721A, IERC721A) returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
+
+    /// @notice Withdraw funds to team
+    function withdraw() external onlyOwner nonReentrant {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No ETH funds to withdraw");
+        require(payable(ceo).send(balance / 2));
+        require(payable(cto).send(balance / 2));
+        // Add ERC-20 token withdrawal code here
+        uint256 tokenBalance = IERC20(pepeTokenContract).balanceOf(
+            address(this)
+        );
+        require(tokenBalance > 0, "No token funds to withdraw");
+
+        require(IERC20(pepeTokenContract).transfer(ceo, tokenBalance / 2));
+        require(IERC20(pepeTokenContract).transfer(cto, tokenBalance / 2));
     }
 }
