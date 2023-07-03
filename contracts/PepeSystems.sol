@@ -95,7 +95,7 @@ contract PepeSystems is
 
     constructor() ERC721A("Pepe Systems", "PS") {
         reg = DelegationRegistry(delegateCashContract);
-        setDefaultRoyalty(msg.sender, 5); // 5%
+        _setDefaultRoyalty(msg.sender, 5); // 5%
     }
 
     /**
@@ -396,7 +396,7 @@ contract PepeSystems is
         address _receiver,
         uint96 _feeNumerator
     ) public onlyOwner {
-        setDefaultRoyalty(_receiver, _feeNumerator);
+        _setDefaultRoyalty(_receiver, _feeNumerator);
     }
 
     /// @notice Token URI
