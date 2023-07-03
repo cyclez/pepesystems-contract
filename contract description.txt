@@ -1,0 +1,15 @@
+Pepe Systems Smart Contract
+
+Main features:
+
+- Minting in $PEPE beside $ETH. PEPE/ETH is calculated upon Uniswap V2 pool pair info.
+
+- lowFee activated if the function delegate cash' function getDelegationsByDelegate returns something. in this case the user will be able to choose which cold wallet to mint on (mint destination is not msg.sender but address wallet).
+
+- Got a merkle tree claimList, where inscribed can mint 1 token for free. claimSupply is editable. no mapping but _getAux - _setAux.
+
+- Got a supply that only the team can mint (222 not editable).
+
+- Sale status is bool.
+
+
