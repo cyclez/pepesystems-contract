@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "../lib/DelegationRegistry.sol";
 import "../lib/IDelegationRegistry.sol";
@@ -60,42 +59,62 @@ import "hardhat/console.sol";
 //                y:::::y
 //               yyyyyyy
 
+error SaleIsOff();
+error MaxSupplyReached();
+error MaxPerTxReached();
+error NoDelegations();
+error InsufficientFunds();
+error TransferFailed();
+error MaxClaimReached();
+error MaxTeamReached();
+error NotWhitelisted();
+error AlreadyClaimed();
+
 contract PepeSystems is
-    ERC721A,
     ERC721ABurnable,
     ERC721AQueryable,
     ERC2981,
-    Ownable,
-    ReentrancyGuard
+    Ownable
 {
     using Strings for uint256;
-    using Address for address;
-    string public pepeUrl;
-    uint256 public supply = 12222;
-    uint256 public teamReserve = 222;
-    uint256 public claimReserve;
-    uint256 public publicMinted;
-    uint256 public claimMinted;
-    uint256 public teamMinted;
-    uint256 public publicMaxMint = 10;
-    uint256 public baseFee = 0.03 ether;
-    uint256 public lowFee = 0.02 ether;
-    bool public revealed = false;
+
+    IDelegationRegistry reg;
+    IERC20 pepe;
+
+    string public baseURI;
+    
+    uint32 public supplyPublic = 12000;
+    uint32 public publicMaxMint = 10;
+    uint64 public baseFee = 0.03 ether;
+    uint64 public lowFee = 0.02 ether;
+    uint32 public maxSupply = 12222;
+    uint32 public claimMinted = 100;
+
+    uint256 public teamMinted = 222;
+
+    bool public saleStatus;
+
     bytes32 public claimListRoot = 0x0;
-    address constant delegateCashContract =
-        0x00000000000076A84feF008CDAbe6409d2FE638B;
-    address constant pepeTokenContract =
-        0x6982508145454Ce325dDbE47a25d4ec3d2311933;
-    address public UniSwapV2RouterAddress =
-        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address public ceo = 0x0000000000000000000000000000000000000000;
     address public cto = 0x0000000000000000000000000000000000000000;
-    DelegationRegistry reg;
-    bool public saleStatus = false;
+    
+    
 
-    constructor() ERC721A("Pepe Systems", "PS") {
-        reg = DelegationRegistry(delegateCashContract);
-        _setDefaultRoyalty(msg.sender, 5); // 5%
+    constructor(address _delegateCashContract, address _pepeAddress, string memory _initBaseURI) ERC721A("Pepe Systems", "PS") {
+        reg = IDelegationRegistry(_delegateCashContract);
+        pepe = IERC20(_pepeAddress);
+        baseURI = _initBaseURI;
+        _setDefaultRoyalty(msg.sender, 500); // 5%
+    }
+
+
+    modifier publicMintCompliance(uint256 amount) {
+        if(!saleStatus) revert SaleIsOff();
+        if(amount > publicMaxMint) revert MaxPerTxReached();
+        if(_totalMinted() + amount > supplyPublic - claimMinted) revert MaxSupplyReached();
+        _;
     }
 
     /**
@@ -107,29 +126,18 @@ contract PepeSystems is
     function publicDelegatedPurchase(
         uint256 pepes,
         address wallet
-    ) public payable {
-        require(saleStatus == true, "Sale is off");
-        require(_totalMinted() + pepes <= supply, "Supply is full");
-        require(
-            publicMinted + pepes <= supply - teamReserve - claimReserve,
-            "Pepe MAX supply reached"
-        );
-        require(pepes <= publicMaxMint, "Max 10 tokens x tx");
+    ) public payable publicMintCompliance(pepes) {
         bool isDelegatedValue = isDelegated();
-        require(isDelegatedValue, "Connected wallet has no delegations");
+        if(!isDelegatedValue) revert NoDelegations();
         if (pepes == publicMaxMint) {
-            require(
-                msg.value >= lowFee * (pepes - 1),
-                "Insufficient funds for purchase"
-            );
+            if(msg.value < lowFee * (pepes - 1)) revert InsufficientFunds();
         } else {
-            require(
-                msg.value >= lowFee * pepes,
-                "Insufficient funds for purchase"
-            );
+            if(msg.value < lowFee * pepes) revert InsufficientFunds();
         }
         _mint(wallet, pepes);
     }
+
+
 
     /// @notice Mint public sale with $PEPE
     /// @notice Mint 10 and pay 9
@@ -137,16 +145,10 @@ contract PepeSystems is
     function publicDelegatedPurchasePepe(
         uint256 pepes,
         address wallet
-    ) public payable {
-        require(saleStatus == true, "Sale is off");
-        require(_totalMinted() + pepes <= supply, "Supply is full");
-        require(
-            publicMinted + pepes <= supply - teamReserve - claimReserve,
-            "Public Sale supply maxed out"
-        );
+    ) public payable publicMintCompliance(pepes) {
         bool isDelegatedValue = isDelegated();
-        require(isDelegatedValue, "Connected wallet has no delegations");
-        require(pepes <= publicMaxMint, "Max 10 tokens x tx");
+        if(!isDelegatedValue) revert NoDelegations();
+
         uint256 pepeTokenPrice = calculateTokensFromEth(lowFee);
         uint256 pepeAmount;
         if (pepes == publicMaxMint) {
@@ -154,39 +156,18 @@ contract PepeSystems is
         } else {
             pepeAmount = pepeTokenPrice * pepes;
         }
-        require(approvePepe(pepeAmount), "Amount not approved");
-        require(
-            IERC20(pepeTokenContract).transferFrom(
-                msg.sender,
-                address(this),
-                pepeAmount
-            ),
-            "$PEPE transfer failed"
-        );
+        if(!pepe.transferFrom(msg.sender,address(this),pepeAmount)) revert TransferFailed();
         _mint(wallet, pepes);
     }
 
     /// @notice Mint public sale
     /// @notice Mint 10 and pay 9
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
-    function publicPurchase(uint256 pepes) public payable {
-        require(saleStatus == true, "Sale is off");
-        require(_totalMinted() + pepes <= supply, "Supply is full");
-        require(
-            publicMinted + pepes <= supply - teamReserve - claimReserve,
-            "Public Sale supply maxed out"
-        );
-        require(pepes <= publicMaxMint, "Max 10 tokens x tx");
+    function publicPurchase(uint256 pepes) public payable publicMintCompliance(pepes) {
         if (pepes == publicMaxMint) {
-            require(
-                msg.value >= baseFee * (pepes - 1),
-                "Insufficient funds for purchase"
-            );
+            if(msg.value < baseFee * (pepes - 1)) revert InsufficientFunds();
         } else {
-            require(
-                msg.value >= baseFee * pepes,
-                "Insufficient funds for purchase"
-            );
+            if(msg.value < baseFee * pepes) revert InsufficientFunds();
         }
         _mint(msg.sender, pepes);
     }
@@ -194,14 +175,7 @@ contract PepeSystems is
     /// @notice Mint public sale with $PEPE
     /// @notice Mint 10 and pay 9
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
-    function publicPurchasePepe(uint256 pepes) public payable {
-        require(saleStatus == true, "Public sale is off");
-        require(_totalMinted() + pepes <= supply, "Supply is full");
-        require(
-            publicMinted + pepes <= supply - teamReserve - claimReserve,
-            "Public Sale supply maxed out"
-        );
-        require(pepes <= publicMaxMint, "Max 10 tokens x tx");
+    function publicPurchasePepe(uint256 pepes) public payable publicMintCompliance(pepes) {
         uint256 pepeTokenPrice = calculateTokensFromEth(baseFee);
         uint256 pepeAmount;
         if (pepes == publicMaxMint) {
@@ -209,62 +183,34 @@ contract PepeSystems is
         } else {
             pepeAmount = pepeTokenPrice * pepes;
         }
-        require(approvePepe(pepeAmount), "Amount not approved");
-        require(
-            IERC20(pepeTokenContract).transferFrom(
-                msg.sender,
-                address(this),
-                pepeAmount
-            ),
-            "$PEPE transfer failed"
-        );
+        if(!pepe.transferFrom(msg.sender,address(this),pepeAmount)) revert TransferFailed();
         _mint(msg.sender, pepes);
     }
 
     function claimPurchase(bytes32[] calldata proof) public payable {
-        require(saleStatus == true, "Claim is OFF");
-        require(
-            claimMinted <= claimReserve,
-            "Claim reserve already fully minted"
-        );
-        require(_totalMinted() + 1 < supply, "Supply is full");
-        require(verifyClaimList(proof), "Not on Claim List");
-        require(_getAux(msg.sender) < 1, "Pepe already claimed");
-        unchecked {
-            ++claimMinted;
-        }
+        if(!saleStatus) revert SaleIsOff();
+        if(_totalMinted() >= maxSupply) revert MaxSupplyReached();
+        if(_getAux(msg.sender) != 0) revert AlreadyClaimed();
+        if(!verifyClaimList(proof)) revert NotWhitelisted();
+        --claimMinted;
         _setAux(msg.sender, 1);
         _mint(msg.sender, 1);
     }
 
     /// @notice Reserves specified number of pepes to a wallet
     /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
-    function mintTeamReserve(uint256 pepes) external onlyOwner {
-        require(_totalMinted() + pepes <= supply, "Supply is full");
-        require(
-            teamMinted + pepes <= teamReserve,
-            "Team reserve already fully minted"
-        );
-        require(pepes <= teamReserve, "Minting too many");
-        unchecked {
-            teamMinted += pepes;
-        }
+    function mintTeamReserve(uint64 pepes) external onlyOwner {
+        if(_totalMinted() + pepes > maxSupply) revert MaxSupplyReached();
+        teamMinted -= pepes;
         _mint(msg.sender, pepes);
     }
 
     /// @notice Gift a give number of pepes into a specific wallet
     /// @param wallet - wallet address to mint to
     /// @param pepes - total number of pepes to gift
-    function gitfTeamReserve(address wallet, uint256 pepes) external onlyOwner {
-        require(_totalMinted() + pepes <= supply, "Supply is full");
-        require(
-            teamMinted + pepes <= teamReserve,
-            "Team reserve already fully minted"
-        );
-        require(pepes <= teamReserve, "Minting too many");
-        unchecked {
-            teamMinted += pepes;
-        }
+    function giftTeamReserve(address wallet, uint64 pepes) external onlyOwner {
+        if(_totalMinted() + pepes > maxSupply) revert MaxSupplyReached();
+        teamMinted -= pepes;
         _mint(wallet, pepes);
     }
 
@@ -273,14 +219,12 @@ contract PepeSystems is
      */
 
     /// @notice internal function checking if a connected wallet has delegations
-    function isDelegated() internal view returns (bool) {
-        bool result;
+    function isDelegated() internal view returns (bool result) {
         IDelegationRegistry.DelegationInfo[] memory delegationInfos;
         delegationInfos = reg.getDelegationsByDelegate(msg.sender);
         if (delegationInfos.length != 0) {
             result = true;
         }
-        return result;
     }
 
     /// @notice internal function to verify claimlist
@@ -291,78 +235,67 @@ contract PepeSystems is
         return MerkleProof.verifyCalldata(proof, claimListRoot, leaf);
     }
 
-    /// @notice Check if wallet is on claimListRoot
-    /// @param proof - proof that wallet is on claimListRoot
-    function isOnCLaimList(
-        bytes32[] calldata proof
-    ) external view returns (bool) {
-        return verifyClaimList(proof);
-    }
-
-    function approvePepe(uint256 amount) internal returns (bool) {
-        bool check = IERC20(pepeTokenContract).approve(address(this), amount);
-        return check;
-    }
-
     function calculateTokensFromEth(
         uint256 ethAmount
-    ) internal view returns (uint256) {
-        IUniswapV2Router02 uniswapRouter = IUniswapV2Router02(
-            UniSwapV2RouterAddress
-        );
-
+    ) public view returns (uint256) {
         address[] memory path = new address[](2);
-        path[0] = uniswapRouter.WETH();
-        path[1] = pepeTokenContract;
-
-        uint256[] memory amounts = uniswapRouter.getAmountsOut(ethAmount, path);
+        path[0] = WETH;
+        path[1] = address(pepe);
+        uint256[] memory amounts = IUniswapV2Router02(ROUTER).getAmountsOut(ethAmount, path);
         return amounts[1];
+    }
+
+
+    function _baseURI() internal view override returns (string memory) {
+        return baseURI;
+    }
+
+    function tokenURI(uint256 tokenId) public view virtual override(ERC721A, IERC721A) returns (string memory) {
+    require(_exists(tokenId),"ERC721Metadata: URI query for nonexistent token");
+    return
+      bytes(baseURI).length > 0
+        ? string(abi.encodePacked(baseURI, tokenId.toString(), '.json'))
+        : "";
     }
 
     /**
      * -----------  SET FUNCTIONS -----------
      */
 
-    /// @notice Set pepe url
-    /// @param _pepeUrl new pepe s base url
-    function setpepeUrl(string memory _pepeUrl) external onlyOwner {
-        pepeUrl = _pepeUrl;
+    function setBaseURI(string calldata _newBaseURI) external onlyOwner {
+        baseURI = _newBaseURI;
     }
 
     /// @notice Set supply
     /// @param _supply number of tokens in the supply
-    function setSupply(uint256 _supply) external onlyOwner {
-        supply = _supply;
+    function setSupply(uint32 _supply) external onlyOwner {
+        supplyPublic = _supply;
     }
 
-    /// @notice set claimable reserve
-    /// @param _claimReserve new reserved supply for free claim
-    function setClaimReserve(uint256 _claimReserve) external onlyOwner {
-        claimReserve = _claimReserve;
+    function setTeamMinted(uint32 _teamMinted) external onlyOwner {
+        teamMinted = _teamMinted;
+    }
+
+    function setClaimMinted(uint32 _claimMinted) external onlyOwner {
+        claimMinted = _claimMinted;
     }
 
     /// @notice Set publicMaxMint limit
     /// @param _publicMaxMint new mint limit per wallet
-    function setPublicMaxMint(uint256 _publicMaxMint) external onlyOwner {
+    function setPublicMaxMint(uint32 _publicMaxMint) external onlyOwner {
         publicMaxMint = _publicMaxMint;
     }
 
     /// @notice Set purchase fee
     /// @param _baseFee new purchase fee price in Wei format
-    function setbaseFee(uint256 _baseFee) external onlyOwner {
+    function setBaseFee(uint64 _baseFee) external onlyOwner {
         baseFee = _baseFee;
     }
 
     /// @notice Set purchase fee
     /// @param _lowFee new purchase fee price in Wei format
-    function setLowFee(uint256 _lowFee) external onlyOwner {
+    function setLowFee(uint64 _lowFee) external onlyOwner {
         lowFee = _lowFee;
-    }
-
-    /// @notice Set revealed
-    /// @param _revealed if set to true metadata is formatted for reveal otherwise metadata is formatted for a preview
-    function setRevealed(bool _revealed) external onlyOwner {
-        revealed = _revealed;
     }
 
     /// @notice set claim list root
@@ -399,20 +332,21 @@ contract PepeSystems is
         _setDefaultRoyalty(_receiver, _feeNumerator);
     }
 
-    /// @notice Token URI
-    /// @param tokenId - token Id of pepe to retreive metadata for
-    function tokenURI(
-        uint256 tokenId
-    ) public view virtual override(ERC721A, IERC721A) returns (string memory) {
-        require(
-            _exists(tokenId),
-            "ERC721Metadata: URI query for nonexistent token"
+
+    /// @notice Withdraw funds to team
+    function withdraw() external onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No ETH funds to withdraw");
+        require(payable(ceo).send(balance / 2));
+        require(payable(cto).send(balance / 2));
+        // Add ERC-20 token withdrawal code here
+        uint256 tokenBalance = pepe.balanceOf(
+            address(this)
         );
-        if (bytes(pepeUrl).length <= 0) return "";
-        return
-            revealed
-                ? string(abi.encodePacked(pepeUrl, tokenId.toString()))
-                : string(abi.encodePacked(pepeUrl));
+        require(tokenBalance > 0, "No token funds to withdraw");
+
+        require(pepe.transfer(ceo, tokenBalance / 2));
+        require(pepe.transfer(cto, tokenBalance / 2));
     }
 
     /**
@@ -423,21 +357,5 @@ contract PepeSystems is
         bytes4 interfaceId
     ) public view virtual override(ERC2981, ERC721A, IERC721A) returns (bool) {
         return super.supportsInterface(interfaceId);
-    }
-
-    /// @notice Withdraw funds to team
-    function withdraw() external onlyOwner nonReentrant {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "No ETH funds to withdraw");
-        require(payable(ceo).send(balance / 2));
-        require(payable(cto).send(balance / 2));
-        // Add ERC-20 token withdrawal code here
-        uint256 tokenBalance = IERC20(pepeTokenContract).balanceOf(
-            address(this)
-        );
-        require(tokenBalance > 0, "No token funds to withdraw");
-
-        require(IERC20(pepeTokenContract).transfer(ceo, tokenBalance / 2));
-        require(IERC20(pepeTokenContract).transfer(cto, tokenBalance / 2));
     }
 }
