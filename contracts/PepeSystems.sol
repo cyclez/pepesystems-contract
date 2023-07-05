@@ -10,7 +10,6 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-import "../lib/DelegationRegistry.sol";
 import "../lib/IDelegationRegistry.sol";
 import "hardhat/console.sol";
 
@@ -65,8 +64,6 @@ error MaxPerTxReached();
 error NoDelegations();
 error InsufficientFunds();
 error TransferFailed();
-error MaxClaimReached();
-error MaxTeamReached();
 error NotWhitelisted();
 error AlreadyClaimed();
 
@@ -83,14 +80,14 @@ contract PepeSystems is
 
     string public baseURI;
     
-    uint32 public supplyPublic = 12000;
-    uint32 public publicMaxMint = 10;
+    uint64 public supplyPublic = 12000;
     uint64 public baseFee = 0.03 ether;
     uint64 public lowFee = 0.02 ether;
-    uint32 public maxSupply = 12222;
-    uint32 public claimMinted = 100;
+    uint32 public claimMinted;//Set to number of claim spots
+    uint32 public publicMaxMint = 10;
 
-    uint256 public teamMinted = 222;
+    uint128 public maxSupply = 12222;
+    uint128 public teamMinted = 222;
 
     bool public saleStatus;
 
@@ -268,8 +265,9 @@ contract PepeSystems is
 
     /// @notice Set supply
     /// @param _supply number of tokens in the supply
-    function setSupply(uint32 _supply) external onlyOwner {
+    function setSupply(uint32 _supply, uint128 _maxSupply) external onlyOwner {
         supplyPublic = _supply;
+        maxSupply = _maxSupply;
     }
 
     function setClaimMinted(uint32 _claimMinted) external onlyOwner {
