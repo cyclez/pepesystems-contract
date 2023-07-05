@@ -186,7 +186,7 @@ contract PepeSystems is
 
     function claimPurchase(bytes32[] calldata proof) public payable {
         if(!saleStatus) revert SaleIsOff();
-        if(_totalMinted() >= maxSupply) revert MaxSupplyReached();
+        if(_totalMinted() >= supplyPublic) revert MaxSupplyReached();
         if(_getAux(msg.sender) != 0) revert AlreadyClaimed();
         if(!verifyClaimList(proof)) revert NotWhitelisted();
         --claimMinted;
