@@ -272,10 +272,6 @@ contract PepeSystems is
         supplyPublic = _supply;
     }
 
-    function setTeamMinted(uint32 _teamMinted) external onlyOwner {
-        teamMinted = _teamMinted;
-    }
-
     function setClaimMinted(uint32 _claimMinted) external onlyOwner {
         claimMinted = _claimMinted;
     }
