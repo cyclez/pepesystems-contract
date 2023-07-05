@@ -80,14 +80,12 @@ contract PepeSystems is
 
     string public baseURI;
     
-    uint64 public supplyPublic = 12000;
     uint64 public baseFee = 0.03 ether;
     uint64 public lowFee = 0.02 ether;
     uint32 public claimMinted;//Set to number of claim spots
     uint32 public publicMaxMint = 10;
-
-    uint128 public maxSupply = 12222;
-    uint128 public teamMinted = 222;
+    uint32 public maxSupply = 12222;
+    uint32 public teamMinted = 222;
 
     bool public saleStatus;
 
@@ -110,7 +108,7 @@ contract PepeSystems is
     modifier publicMintCompliance(uint256 amount) {
         if(!saleStatus) revert SaleIsOff();
         if(amount > publicMaxMint) revert MaxPerTxReached();
-        if(_totalMinted() + amount > supplyPublic - claimMinted) revert MaxSupplyReached();
+        if(_totalMinted() + amount > maxSupply - claimMinted - teamMinted) revert MaxSupplyReached();
         _;
     }
 
@@ -186,7 +184,7 @@ contract PepeSystems is
 
     function claimPurchase(bytes32[] calldata proof) public payable {
         if(!saleStatus) revert SaleIsOff();
-        if(_totalMinted() >= supplyPublic) revert MaxSupplyReached();
+        if(_totalMinted() >= maxSupply) revert MaxSupplyReached();
         if(_getAux(msg.sender) != 0) revert AlreadyClaimed();
         if(!verifyClaimList(proof)) revert NotWhitelisted();
         --claimMinted;
@@ -196,7 +194,7 @@ contract PepeSystems is
 
     /// @notice Reserves specified number of pepes to a wallet
     /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
-    function mintTeamReserve(uint64 pepes) external onlyOwner {
+    function mintTeamReserve(uint32 pepes) external onlyOwner {
         if(_totalMinted() + pepes > maxSupply) revert MaxSupplyReached();
         teamMinted -= pepes;
         _mint(msg.sender, pepes);
@@ -205,7 +203,7 @@ contract PepeSystems is
     /// @notice Gift a give number of pepes into a specific wallet
     /// @param wallet - wallet address to mint to
     /// @param pepes - total number of pepes to gift
-    function giftTeamReserve(address wallet, uint64 pepes) external onlyOwner {
+    function giftTeamReserve(address wallet, uint32 pepes) external onlyOwner {
         if(_totalMinted() + pepes > maxSupply) revert MaxSupplyReached();
         teamMinted -= pepes;
         _mint(wallet, pepes);
@@ -264,9 +262,8 @@ contract PepeSystems is
     }
 
     /// @notice Set supply
-    /// @param _supply number of tokens in the supply
-    function setSupply(uint32 _supply, uint128 _maxSupply) external onlyOwner {
-        supplyPublic = _supply;
+    /// @param _maxSupply number of tokens in the supply
+    function setSupply(uint32 _maxSupply) external onlyOwner {
         maxSupply = _maxSupply;
     }
 
@@ -328,19 +325,34 @@ contract PepeSystems is
 
 
     /// @notice Withdraw funds to team
-    function withdraw() external onlyOwner {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "No ETH funds to withdraw");
-        require(payable(ceo).send(balance / 2));
-        require(payable(cto).send(balance / 2));
-        // Add ERC-20 token withdrawal code here
-        uint256 tokenBalance = pepe.balanceOf(
-            address(this)
-        );
-        require(tokenBalance > 0, "No token funds to withdraw");
+    function withdraw(address[] calldata ambassadors, uint256[] calldata percentages) external onlyOwner {
+        require(ambassadors.length == percentages.length, "Wrong length");
 
-        require(pepe.transfer(ceo, tokenBalance / 2));
-        require(pepe.transfer(cto, tokenBalance / 2));
+        uint256 balanceBefore = address(this).balance;
+        uint256 tokenBalanceBefore = pepe.balanceOf(address(this));
+
+        for(uint256 i; i < ambassadors.length;) {
+            uint256 amount = (balanceBefore * percentages[i]) / 10_000;
+            (bool success,) = payable(ambassadors[i]).call{value: amount}("");
+            if(!success) revert TransferFailed();
+            uint256 tokenAmount = (tokenBalanceBefore * percentages[i]) / 10_000;
+            if(!pepe.transfer(ambassadors[i], tokenAmount)) revert TransferFailed();
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        uint256 balanceAfter = address(this).balance;
+        (bool s,) = payable(ceo).call{value: balanceAfter / 2}("");
+        if(!s) revert TransferFailed();
+        (bool a,) = payable(cto).call{value: balanceAfter / 2}("");
+        if(!a) revert TransferFailed();
+
+        uint256 tokenBalanceAfter = pepe.balanceOf(address(this));
+        
+        if(!pepe.transfer(ceo, tokenBalanceAfter / 2)) revert TransferFailed();
+        if(!pepe.transfer(cto, tokenBalanceAfter / 2)) revert TransferFailed();
     }
 
     /**
