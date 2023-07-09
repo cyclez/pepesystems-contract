@@ -76,10 +76,10 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
 
     uint64 public baseFee = 0.03 ether;
     uint64 public lowFee = 0.02 ether;
-    uint32 public claimMinted; //Set to number of claim spots
+    uint32 public claimsToMint; //Set to number of claim spots
     uint32 public publicMaxMint = 10;
     uint32 public maxSupply = 12222;
-    uint32 public teamMinted = 222;
+    uint32 public teamToMint = 222;
 
     bool public saleStatus;
 
@@ -103,7 +103,7 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
     modifier publicMintCompliance(uint256 amount) {
         if (!saleStatus) revert SaleIsOff();
         if (amount > publicMaxMint) revert MaxPerTxReached();
-        if (_totalMinted() + amount > maxSupply - claimMinted - teamMinted)
+        if (_totalMinted() + amount > maxSupply - claimsToMint - teamToMint)
             revert MaxSupplyReached();
         _;
     }
@@ -187,7 +187,7 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         if (_totalMinted() >= maxSupply) revert MaxSupplyReached();
         if (_getAux(msg.sender) != 0) revert AlreadyClaimed();
         if (!verifyClaimList(proof)) revert NotWhitelisted();
-        --claimMinted;
+        --claimsToMint;
         _setAux(msg.sender, 1);
         _mint(msg.sender, 1);
     }
@@ -196,7 +196,7 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
     /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
     function mintTeamReserve(uint32 pepes) external onlyOwner {
         if (_totalMinted() + pepes > maxSupply) revert MaxSupplyReached();
-        teamMinted -= pepes;
+        teamToMint -= pepes;
         _mint(msg.sender, pepes);
     }
 
@@ -205,7 +205,7 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
     /// @param pepes - total number of pepes to gift
     function giftTeamReserve(address wallet, uint32 pepes) external onlyOwner {
         if (_totalMinted() + pepes > maxSupply) revert MaxSupplyReached();
-        teamMinted -= pepes;
+        teamToMint -= pepes;
         _mint(wallet, pepes);
     }
 
@@ -274,8 +274,8 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         maxSupply = _maxSupply;
     }
 
-    function setClaimMinted(uint32 _claimMinted) external onlyOwner {
-        claimMinted = _claimMinted;
+    function setclaimsToMint(uint32 _claimsToMint) external onlyOwner {
+        claimsToMint = _claimsToMint;
     }
 
     /// @notice Set publicMaxMint limit
