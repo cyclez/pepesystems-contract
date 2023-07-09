@@ -274,7 +274,7 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         maxSupply = _maxSupply;
     }
 
-    function setclaimsToMint(uint32 _claimsToMint) external onlyOwner {
+    function setClaimsToMint(uint32 _claimsToMint) external onlyOwner {
         claimsToMint = _claimsToMint;
     }
 
