@@ -11,7 +11,6 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "../lib/IDelegationRegistry.sol";
-import "hardhat/console.sol";
 
 //PPPPPPPPPPPPPPPPP
 //P::::::::::::::::P
@@ -67,22 +66,17 @@ error TransferFailed();
 error NotWhitelisted();
 error AlreadyClaimed();
 
-contract PepeSystems is
-    ERC721ABurnable,
-    ERC721AQueryable,
-    ERC2981,
-    Ownable
-{
+contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
     using Strings for uint256;
 
     IDelegationRegistry reg;
     IERC20 pepe;
 
     string public baseURI;
-    
+
     uint64 public baseFee = 0.03 ether;
     uint64 public lowFee = 0.02 ether;
-    uint32 public claimMinted;//Set to number of claim spots
+    uint32 public claimMinted; //Set to number of claim spots
     uint32 public publicMaxMint = 10;
     uint32 public maxSupply = 12222;
     uint32 public teamMinted = 222;
@@ -94,21 +88,23 @@ contract PepeSystems is
     address constant ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address public ceo = 0x0000000000000000000000000000000000000000;
     address public cto = 0x0000000000000000000000000000000000000000;
-    
-    
 
-    constructor(address _delegateCashContract, address _pepeAddress, string memory _initBaseURI) ERC721A("Pepe Systems", "PS") {
+    constructor(
+        address _delegateCashContract,
+        address _pepeAddress,
+        string memory _initBaseURI
+    ) ERC721A("Pepe Systems", "PS") {
         reg = IDelegationRegistry(_delegateCashContract);
         pepe = IERC20(_pepeAddress);
         baseURI = _initBaseURI;
         _setDefaultRoyalty(msg.sender, 500); // 5%
     }
 
-
     modifier publicMintCompliance(uint256 amount) {
-        if(!saleStatus) revert SaleIsOff();
-        if(amount > publicMaxMint) revert MaxPerTxReached();
-        if(_totalMinted() + amount > maxSupply - claimMinted - teamMinted) revert MaxSupplyReached();
+        if (!saleStatus) revert SaleIsOff();
+        if (amount > publicMaxMint) revert MaxPerTxReached();
+        if (_totalMinted() + amount > maxSupply - claimMinted - teamMinted)
+            revert MaxSupplyReached();
         _;
     }
 
@@ -123,16 +119,14 @@ contract PepeSystems is
         address wallet
     ) public payable publicMintCompliance(pepes) {
         bool isDelegatedValue = isDelegated();
-        if(!isDelegatedValue) revert NoDelegations();
+        if (!isDelegatedValue) revert NoDelegations();
         if (pepes == publicMaxMint) {
-            if(msg.value < lowFee * (pepes - 1)) revert InsufficientFunds();
+            if (msg.value < lowFee * (pepes - 1)) revert InsufficientFunds();
         } else {
-            if(msg.value < lowFee * pepes) revert InsufficientFunds();
+            if (msg.value < lowFee * pepes) revert InsufficientFunds();
         }
         _mint(wallet, pepes);
     }
-
-
 
     /// @notice Mint public sale with $PEPE
     /// @notice Mint 10 and pay 9
@@ -142,7 +136,7 @@ contract PepeSystems is
         address wallet
     ) public payable publicMintCompliance(pepes) {
         bool isDelegatedValue = isDelegated();
-        if(!isDelegatedValue) revert NoDelegations();
+        if (!isDelegatedValue) revert NoDelegations();
 
         uint256 pepeTokenPrice = calculateTokensFromEth(lowFee);
         uint256 pepeAmount;
@@ -151,18 +145,21 @@ contract PepeSystems is
         } else {
             pepeAmount = pepeTokenPrice * pepes;
         }
-        if(!pepe.transferFrom(msg.sender,address(this),pepeAmount)) revert TransferFailed();
+        if (!pepe.transferFrom(msg.sender, address(this), pepeAmount))
+            revert TransferFailed();
         _mint(wallet, pepes);
     }
 
     /// @notice Mint public sale
     /// @notice Mint 10 and pay 9
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
-    function publicPurchase(uint256 pepes) public payable publicMintCompliance(pepes) {
+    function publicPurchase(
+        uint256 pepes
+    ) public payable publicMintCompliance(pepes) {
         if (pepes == publicMaxMint) {
-            if(msg.value < baseFee * (pepes - 1)) revert InsufficientFunds();
+            if (msg.value < baseFee * (pepes - 1)) revert InsufficientFunds();
         } else {
-            if(msg.value < baseFee * pepes) revert InsufficientFunds();
+            if (msg.value < baseFee * pepes) revert InsufficientFunds();
         }
         _mint(msg.sender, pepes);
     }
@@ -170,7 +167,9 @@ contract PepeSystems is
     /// @notice Mint public sale with $PEPE
     /// @notice Mint 10 and pay 9
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
-    function publicPurchasePepe(uint256 pepes) public payable publicMintCompliance(pepes) {
+    function publicPurchasePepe(
+        uint256 pepes
+    ) public payable publicMintCompliance(pepes) {
         uint256 pepeTokenPrice = calculateTokensFromEth(baseFee);
         uint256 pepeAmount;
         if (pepes == publicMaxMint) {
@@ -178,15 +177,16 @@ contract PepeSystems is
         } else {
             pepeAmount = pepeTokenPrice * pepes;
         }
-        if(!pepe.transferFrom(msg.sender,address(this),pepeAmount)) revert TransferFailed();
+        if (!pepe.transferFrom(msg.sender, address(this), pepeAmount))
+            revert TransferFailed();
         _mint(msg.sender, pepes);
     }
 
-    function claimPurchase(bytes32[] calldata proof) public payable {
-        if(!saleStatus) revert SaleIsOff();
-        if(_totalMinted() >= maxSupply) revert MaxSupplyReached();
-        if(_getAux(msg.sender) != 0) revert AlreadyClaimed();
-        if(!verifyClaimList(proof)) revert NotWhitelisted();
+    function claimPurchase(bytes32[] calldata proof) public {
+        if (!saleStatus) revert SaleIsOff();
+        if (_totalMinted() >= maxSupply) revert MaxSupplyReached();
+        if (_getAux(msg.sender) != 0) revert AlreadyClaimed();
+        if (!verifyClaimList(proof)) revert NotWhitelisted();
         --claimMinted;
         _setAux(msg.sender, 1);
         _mint(msg.sender, 1);
@@ -195,7 +195,7 @@ contract PepeSystems is
     /// @notice Reserves specified number of pepes to a wallet
     /// @param pepes - total number of pepes to reserve (must be less than teamReserve size)
     function mintTeamReserve(uint32 pepes) external onlyOwner {
-        if(_totalMinted() + pepes > maxSupply) revert MaxSupplyReached();
+        if (_totalMinted() + pepes > maxSupply) revert MaxSupplyReached();
         teamMinted -= pepes;
         _mint(msg.sender, pepes);
     }
@@ -204,7 +204,7 @@ contract PepeSystems is
     /// @param wallet - wallet address to mint to
     /// @param pepes - total number of pepes to gift
     function giftTeamReserve(address wallet, uint32 pepes) external onlyOwner {
-        if(_totalMinted() + pepes > maxSupply) revert MaxSupplyReached();
+        if (_totalMinted() + pepes > maxSupply) revert MaxSupplyReached();
         teamMinted -= pepes;
         _mint(wallet, pepes);
     }
@@ -236,21 +236,28 @@ contract PepeSystems is
         address[] memory path = new address[](2);
         path[0] = WETH;
         path[1] = address(pepe);
-        uint256[] memory amounts = IUniswapV2Router02(ROUTER).getAmountsOut(ethAmount, path);
+        uint256[] memory amounts = IUniswapV2Router02(ROUTER).getAmountsOut(
+            ethAmount,
+            path
+        );
         return amounts[1];
     }
-
 
     function _baseURI() internal view override returns (string memory) {
         return baseURI;
     }
 
-    function tokenURI(uint256 tokenId) public view virtual override(ERC721A, IERC721A) returns (string memory) {
-    require(_exists(tokenId),"ERC721Metadata: URI query for nonexistent token");
-    return
-      bytes(baseURI).length > 0
-        ? string(abi.encodePacked(baseURI, tokenId.toString(), '.json'))
-        : "";
+    function tokenURI(
+        uint256 tokenId
+    ) public view virtual override(ERC721A, IERC721A) returns (string memory) {
+        require(
+            _exists(tokenId),
+            "ERC721Metadata: URI query for nonexistent token"
+        );
+        return
+            bytes(baseURI).length > 0
+                ? string(abi.encodePacked(baseURI, tokenId.toString(), ".json"))
+                : "";
     }
 
     /**
@@ -323,20 +330,24 @@ contract PepeSystems is
         _setDefaultRoyalty(_receiver, _feeNumerator);
     }
 
-
     /// @notice Withdraw funds to team
-    function withdraw(address[] calldata ambassadors, uint256[] calldata percentages) external onlyOwner {
+    function withdraw(
+        address[] calldata ambassadors,
+        uint256[] calldata percentages
+    ) external onlyOwner {
         require(ambassadors.length == percentages.length, "Wrong length");
 
         uint256 balanceBefore = address(this).balance;
         uint256 tokenBalanceBefore = pepe.balanceOf(address(this));
 
-        for(uint256 i; i < ambassadors.length;) {
+        for (uint256 i; i < ambassadors.length; ) {
             uint256 amount = (balanceBefore * percentages[i]) / 10_000;
-            (bool success,) = payable(ambassadors[i]).call{value: amount}("");
-            if(!success) revert TransferFailed();
-            uint256 tokenAmount = (tokenBalanceBefore * percentages[i]) / 10_000;
-            if(!pepe.transfer(ambassadors[i], tokenAmount)) revert TransferFailed();
+            (bool success, ) = payable(ambassadors[i]).call{value: amount}("");
+            if (!success) revert TransferFailed();
+            uint256 tokenAmount = (tokenBalanceBefore * percentages[i]) /
+                10_000;
+            if (!pepe.transfer(ambassadors[i], tokenAmount))
+                revert TransferFailed();
 
             unchecked {
                 ++i;
@@ -344,15 +355,15 @@ contract PepeSystems is
         }
 
         uint256 balanceAfter = address(this).balance;
-        (bool s,) = payable(ceo).call{value: balanceAfter / 2}("");
-        if(!s) revert TransferFailed();
-        (bool a,) = payable(cto).call{value: balanceAfter / 2}("");
-        if(!a) revert TransferFailed();
+        (bool s, ) = payable(ceo).call{value: balanceAfter / 2}("");
+        if (!s) revert TransferFailed();
+        (bool a, ) = payable(cto).call{value: balanceAfter / 2}("");
+        if (!a) revert TransferFailed();
 
         uint256 tokenBalanceAfter = pepe.balanceOf(address(this));
-        
-        if(!pepe.transfer(ceo, tokenBalanceAfter / 2)) revert TransferFailed();
-        if(!pepe.transfer(cto, tokenBalanceAfter / 2)) revert TransferFailed();
+
+        if (!pepe.transfer(ceo, tokenBalanceAfter / 2)) revert TransferFailed();
+        if (!pepe.transfer(cto, tokenBalanceAfter / 2)) revert TransferFailed();
     }
 
     /**
