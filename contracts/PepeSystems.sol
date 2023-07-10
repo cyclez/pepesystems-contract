@@ -213,6 +213,13 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
      * -----------  UTILITY FUNCTIONS -----------
      */
 
+    /// @notice external function to check if a wallet has already claim
+    function hasClaimed(address wallet) external view returns (bool result) {
+        if (_getAux(wallet) != 0) {
+            result = true;
+        }
+    }
+
     /// @notice internal function checking if a connected wallet has delegations
     function isDelegated() internal view returns (bool result) {
         IDelegationRegistry.DelegationInfo[] memory delegationInfos;
