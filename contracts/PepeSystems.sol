@@ -61,6 +61,7 @@ error SaleIsOff();
 error MaxSupplyReached();
 error MaxPerTxReached();
 error NoDelegations();
+error WrongDelegationType();
 error InsufficientFunds();
 error TransferFailed();
 error NotWhitelisted();
@@ -116,16 +117,25 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
     function publicDelegatedPurchase(
         uint256 pepes,
-        address wallet
+        address vault,
+        uint32 delegationType,
+        address delegationContract,
+        uint32 delegationTokenId,
+        address destination
     ) public payable publicMintCompliance(pepes) {
-        bool isDelegatedValue = isDelegated();
+        bool isDelegatedValue = checkDelegation(
+            delegationType,
+            vault,
+            delegationContract,
+            delegationTokenId
+        );
         if (!isDelegatedValue) revert NoDelegations();
         if (pepes == publicMaxMint) {
             if (msg.value < lowFee * (pepes - 1)) revert InsufficientFunds();
         } else {
             if (msg.value < lowFee * pepes) revert InsufficientFunds();
         }
-        _mint(wallet, pepes);
+        _mint(destination, pepes);
     }
 
     /// @notice Mint public sale with $PEPE
@@ -133,9 +143,18 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
     function publicDelegatedPurchasePepe(
         uint256 pepes,
-        address wallet
+        address vault,
+        uint32 delegationType,
+        address delegationContract,
+        uint32 delegationTokenId,
+        address destination
     ) public payable publicMintCompliance(pepes) {
-        bool isDelegatedValue = isDelegated();
+        bool isDelegatedValue = checkDelegation(
+            delegationType,
+            vault,
+            delegationContract,
+            delegationTokenId
+        );
         if (!isDelegatedValue) revert NoDelegations();
 
         uint256 pepeTokenPrice = calculateTokensFromEth(lowFee);
@@ -147,7 +166,7 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         }
         if (!pepe.transferFrom(msg.sender, address(this), pepeAmount))
             revert TransferFailed();
-        _mint(wallet, pepes);
+        _mint(destination, pepes);
     }
 
     /// @notice Mint public sale
@@ -220,7 +239,35 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         }
     }
 
+    function checkDelegation(
+        uint32 delType,
+        address vault,
+        address delContract,
+        uint32 delTokenId
+    ) internal view returns (bool result) {
+        if (delType >= 1 && delType <= 3) revert WrongDelegationType();
+        if (delType == 1) {
+            result = reg.checkDelegateForAll(msg.sender, vault);
+        }
+        if (delType == 2) {
+            result = reg.checkDelegateForContract(
+                msg.sender,
+                vault,
+                delContract
+            );
+        }
+        if (delType == 3) {
+            result = reg.checkDelegateForToken(
+                msg.sender,
+                vault,
+                delContract,
+                delTokenId
+            );
+        }
+    }
+
     /// @notice internal function checking if a connected wallet has delegations
+    /// DEPRECATED
     function isDelegated() internal view returns (bool result) {
         IDelegationRegistry.DelegationInfo[] memory delegationInfos;
         delegationInfos = reg.getDelegationsByDelegate(msg.sender);
