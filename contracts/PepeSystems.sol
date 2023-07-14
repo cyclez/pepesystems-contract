@@ -61,7 +61,6 @@ error SaleIsOff();
 error MaxSupplyReached();
 error MaxPerTxReached();
 error NoDelegations();
-error WrongDelegationType();
 error InsufficientFunds();
 error TransferFailed();
 error NotWhitelisted();
@@ -75,9 +74,9 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
 
     string public baseURI;
 
-    uint64 public baseFee = 0.03 ether;
+    uint64 public baseFee = 0.025 ether;
     uint64 public lowFee = 0.02 ether;
-    uint32 public claimsToMint; //Set to number of claim spots
+    uint32 public claimsToMint;
     uint32 public publicMaxMint = 10;
     uint32 public maxSupply = 12222;
     uint32 public teamToMint = 222;
@@ -234,9 +233,7 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
 
     /// @notice external function to check if a wallet has already claim
     function hasClaimed(address wallet) external view returns (bool result) {
-        if (_getAux(wallet) != 0) {
-            result = true;
-        }
+        return _getAux(wallet) != 0;
     }
 
     function checkDelegation(
@@ -245,7 +242,6 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         address delContract,
         uint32 delTokenId
     ) internal view returns (bool result) {
-        if (delType >= 1 && delType <= 3) revert WrongDelegationType();
         if (delType == 1) {
             result = reg.checkDelegateForAll(msg.sender, vault);
         }
