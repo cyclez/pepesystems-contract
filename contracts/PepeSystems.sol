@@ -112,6 +112,38 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
      * -----------  MINT FUNCTIONS -----------
      */
 
+    /// @notice Mint public sale
+    /// @notice Mint 10 and pay 9
+    /// @param pepes - total number of pepes to mint (must be less than purchase limit)
+    function publicPurchase(
+        uint256 pepes
+    ) public payable publicMintCompliance(pepes) {
+        if (pepes == publicMaxMint) {
+            if (msg.value < baseFee * (pepes - 1)) revert InsufficientFunds();
+        } else {
+            if (msg.value < baseFee * pepes) revert InsufficientFunds();
+        }
+        _mint(msg.sender, pepes);
+    }
+
+    /// @notice Mint public sale with $PEPE
+    /// @notice Mint 10 and pay 9
+    /// @param pepes - total number of pepes to mint (must be less than purchase limit)
+    function publicPurchasePepe(
+        uint256 pepes
+    ) public payable publicMintCompliance(pepes) {
+        uint256 pepeTokenPrice = calculateTokensFromEth(baseFee);
+        uint256 pepeAmount;
+        if (pepes == publicMaxMint) {
+            pepeAmount = pepeTokenPrice * (pepes - 1);
+        } else {
+            pepeAmount = pepeTokenPrice * pepes;
+        }
+        if (!pepe.transferFrom(msg.sender, address(this), pepeAmount))
+            revert TransferFailed();
+        _mint(msg.sender, pepes);
+    }
+
     /// @notice Mint in public with a delegated wallet
     /// @param pepes - total number of pepes to mint (must be less than purchase limit)
     function publicDelegatedPurchase(
@@ -168,38 +200,8 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         _mint(destination, pepes);
     }
 
-    /// @notice Mint public sale
-    /// @notice Mint 10 and pay 9
-    /// @param pepes - total number of pepes to mint (must be less than purchase limit)
-    function publicPurchase(
-        uint256 pepes
-    ) public payable publicMintCompliance(pepes) {
-        if (pepes == publicMaxMint) {
-            if (msg.value < baseFee * (pepes - 1)) revert InsufficientFunds();
-        } else {
-            if (msg.value < baseFee * pepes) revert InsufficientFunds();
-        }
-        _mint(msg.sender, pepes);
-    }
-
-    /// @notice Mint public sale with $PEPE
-    /// @notice Mint 10 and pay 9
-    /// @param pepes - total number of pepes to mint (must be less than purchase limit)
-    function publicPurchasePepe(
-        uint256 pepes
-    ) public payable publicMintCompliance(pepes) {
-        uint256 pepeTokenPrice = calculateTokensFromEth(baseFee);
-        uint256 pepeAmount;
-        if (pepes == publicMaxMint) {
-            pepeAmount = pepeTokenPrice * (pepes - 1);
-        } else {
-            pepeAmount = pepeTokenPrice * pepes;
-        }
-        if (!pepe.transferFrom(msg.sender, address(this), pepeAmount))
-            revert TransferFailed();
-        _mint(msg.sender, pepes);
-    }
-
+    /// @notice MerkleTree Claim
+    /// @param proof proof to verify wallet with root
     function claimPurchase(bytes32[] calldata proof) public {
         if (!saleStatus) revert SaleIsOff();
         if (_totalMinted() >= maxSupply) revert MaxSupplyReached();
@@ -236,6 +238,11 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         return _getAux(wallet) != 0;
     }
 
+    /// @notice check input delegation
+    /// @param delType type of delegation
+    /// @param vault delegation vault
+    /// @param delContract delegation contract (if contract type delegation)
+    /// @param delTokenId delegation token id (it token type delegation)
     function checkDelegation(
         uint32 delType,
         address vault,
@@ -270,6 +277,8 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         return MerkleProof.verifyCalldata(proof, claimListRoot, leaf);
     }
 
+    /// @notice calculate the amount in $PEPE from $ETH input
+    /// @param ethAmount amount to convert
     function calculateTokensFromEth(
         uint256 ethAmount
     ) public view returns (uint256) {
@@ -283,10 +292,13 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         return amounts[1];
     }
 
+    /// @notice base token uri
     function _baseURI() internal view override returns (string memory) {
         return baseURI;
     }
 
+    /// @notice read token uri
+    /// @param tokenId token id
     function tokenURI(
         uint256 tokenId
     ) public view virtual override(ERC721A, IERC721A) returns (string memory) {
@@ -304,6 +316,8 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
      * -----------  SET FUNCTIONS -----------
      */
 
+    /// @notice set baseURI
+    /// @param _newBaseURI new baseURI
     function setBaseURI(string calldata _newBaseURI) external onlyOwner {
         baseURI = _newBaseURI;
     }
@@ -314,6 +328,8 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         maxSupply = _maxSupply;
     }
 
+    /// @notice claimable token counter
+    /// @param _claimsToMint number of claimable tokens
     function setClaimsToMint(uint32 _claimsToMint) external onlyOwner {
         claimsToMint = _claimsToMint;
     }
@@ -370,7 +386,9 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         _setDefaultRoyalty(_receiver, _feeNumerator);
     }
 
-    /// @notice Withdraw funds to team
+    /// @notice Withdraw funds to team and ambassadors
+    /// @param ambassadors ambassadors wallets array
+    /// @param percentages ambassadors percentages array
     function withdraw(
         address[] calldata ambassadors,
         uint256[] calldata percentages
