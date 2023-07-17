@@ -328,7 +328,7 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         maxSupply = _maxSupply;
     }
 
-    /// @notice claimable token counter
+    /// @notice claimable tokens counter
     /// @param _claimsToMint number of claimable tokens
     function setClaimsToMint(uint32 _claimsToMint) external onlyOwner {
         claimsToMint = _claimsToMint;
@@ -346,7 +346,7 @@ contract PepeSystems is ERC721ABurnable, ERC721AQueryable, ERC2981, Ownable {
         baseFee = _baseFee;
     }
 
-    /// @notice Set purchase fee
+    /// @notice Set purchase low fee
     /// @param _lowFee new purchase fee price in Wei format
     function setLowFee(uint64 _lowFee) external onlyOwner {
         lowFee = _lowFee;
